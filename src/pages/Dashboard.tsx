@@ -244,10 +244,11 @@ const Dashboard = () => {
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-2 ml-auto md:ml-0">
+                  <div className="flex flex-wrap items-center gap-2 ml-auto md:ml-0 shrink-0">
                     <Button
                       variant="outline"
                       size="sm"
+                      className="border-white/50 bg-white/15 text-white hover:bg-white/25 hover:text-white hover:border-white/70"
                       onClick={() => navigate(`/dashboard/request/${request.id}`)}
                     >
                       <Eye className="w-4 h-4 mr-2" />
@@ -257,6 +258,7 @@ const Dashboard = () => {
                       <Button
                         variant="hero"
                         size="sm"
+                        className="bg-accent text-accent-foreground hover:bg-accent/90"
                         onClick={() => navigate(`/dashboard/request/${request.id}`)}
                       >
                         View Bids

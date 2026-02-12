@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Building2, Car, Clock, CheckCircle, DollarSign, LogOut, Eye, MapPin, Calendar, Trophy, TrendingUp } from "lucide-react";
+import { Building2, Car, Clock, CheckCircle, DollarSign, LogOut, Eye, MapPin, Calendar, Trophy, TrendingUp, Send } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useBids } from "@/lib/bidsStore";
 
@@ -110,43 +110,43 @@ const ShopDashboard = () => {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
-        {/* Stats */}
+        {/* Stats - tıklanabilir değil, sadece bilgi */}
         <div className="grid grid-cols-3 gap-3 mb-6">
-          <Card>
-            <CardContent className="p-3">
-              <div className="flex items-center gap-2">
-                <div className="w-9 h-9 bg-accent/10 rounded-lg flex items-center justify-center shrink-0">
-                  <Car className="w-4 h-4 text-accent" />
+          <Card className="border-border">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-accent/20 rounded-lg flex items-center justify-center shrink-0">
+                  <Car className="w-5 h-5 text-accent" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xl font-bold tabular-nums">{stats.total}</p>
-                  <p className="text-xs text-muted-foreground">Active Requests</p>
+                  <p className="text-2xl font-bold tabular-nums text-foreground">{stats.total}</p>
+                  <p className="text-sm text-muted-foreground">Active Requests</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-3">
-              <div className="flex items-center gap-2">
-                <div className="w-9 h-9 bg-success/10 rounded-lg flex items-center justify-center shrink-0">
-                  <CheckCircle className="w-4 h-4 text-success" />
+          <Card className="border-border">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-success/20 rounded-lg flex items-center justify-center shrink-0">
+                  <CheckCircle className="w-5 h-5 text-success" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xl font-bold tabular-nums">{stats.bidded}</p>
-                  <p className="text-xs text-muted-foreground">Bids Placed</p>
+                  <p className="text-2xl font-bold tabular-nums text-foreground">{stats.bidded}</p>
+                  <p className="text-sm text-muted-foreground">Bids Placed</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-3">
-              <div className="flex items-center gap-2">
-                <div className="w-9 h-9 bg-muted rounded-lg flex items-center justify-center shrink-0">
-                  <Clock className="w-4 h-4 text-muted-foreground" />
+          <Card className="border-border">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center shrink-0">
+                  <Clock className="w-5 h-5 text-foreground" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xl font-bold tabular-nums">{stats.pending}</p>
-                  <p className="text-xs text-muted-foreground">Pending</p>
+                  <p className="text-2xl font-bold tabular-nums text-foreground">{stats.pending}</p>
+                  <p className="text-sm text-muted-foreground">Pending</p>
                 </div>
               </div>
             </CardContent>
@@ -207,15 +207,15 @@ const ShopDashboard = () => {
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-3 ml-auto lg:ml-0">
+                  <div className="flex flex-wrap items-center gap-2 ml-auto lg:ml-0 shrink-0">
                     {request.myBid ? (
-                      <div className="text-right mr-3 shrink-0">
+                      <div className="text-right shrink-0">
                         <p className="text-xs text-muted-foreground">Your Bid</p>
                         <p className="text-lg font-bold text-success tabular-nums">${request.myBid.toLocaleString()}</p>
                         {(() => {
                           const winning = getWinningBidAmount(request.id);
                           if (winning == null) return null;
-                          const pctAbove = ((request.myBid - winning) / winning) * 100;
+                          const pctAbove = ((request.myBid! - winning) / winning) * 100;
                           if (Math.abs(pctAbove) < 0.5) {
                             return (
                               <p className="text-xs text-success font-medium mt-0.5 flex items-center gap-1 justify-end">
@@ -234,10 +234,10 @@ const ShopDashboard = () => {
                         })()}
                       </div>
                     ) : null}
-                    
                     <Button
                       variant="outline"
                       size="sm"
+                      className="border-white/50 bg-white/15 text-white hover:bg-white/25 hover:text-white hover:border-white/70"
                       onClick={() =>
                         navigate(`/shop/dashboard/request/${request.id}`, {
                           state: { myBid: request.myBid ?? undefined },
@@ -247,6 +247,20 @@ const ShopDashboard = () => {
                       <Eye className="w-4 h-4 mr-2" />
                       Details
                     </Button>
+                    {request.myBid == null && (
+                      <Button
+                        variant="hero"
+                        size="sm"
+                        onClick={() =>
+                          navigate(`/shop/dashboard/request/${request.id}`, {
+                            state: { myBid: undefined },
+                          })
+                        }
+                      >
+                        <Send className="w-4 h-4 mr-2" />
+                        Place Bid
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardContent>

@@ -226,11 +226,19 @@ const ShopRequestDetail = () => {
 
           {/* Actions */}
           <div className="flex flex-wrap gap-3">
-            <Button variant="outline" onClick={() => navigate("/shop/dashboard")}>
+            <Button
+              variant="outline"
+              className="border-white/50 bg-white/15 text-white hover:bg-white/25 hover:text-white hover:border-white/70"
+              onClick={() => navigate("/shop/dashboard")}
+            >
               Back to list
             </Button>
             {myBid == null && (
-              <Button variant="hero" onClick={() => setBidDialogOpen(true)}>
+              <Button
+                variant="hero"
+                className="bg-accent text-accent-foreground hover:bg-accent/90 font-bold shadow-lg"
+                onClick={() => setBidDialogOpen(true)}
+              >
                 <Send className="w-4 h-4 mr-2" />
                 Place Bid
               </Button>
