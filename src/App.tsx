@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { BidsProvider } from "@/lib/bidsStore";
 import { AuthProvider } from "@/lib/authContext";
+import { LanguageProvider } from "@/lib/LanguageContext";
 import { NotificationProvider } from "@/lib/notificationContext";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
@@ -18,6 +19,8 @@ import RequestDetail from "./pages/RequestDetail";
 import ShopDashboard from "./pages/ShopDashboard";
 import ShopRequestDetail from "./pages/ShopRequestDetail";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminRequestDetail from "./pages/AdminRequestDetail";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +29,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <AuthProvider>
+      <LanguageProvider>
       <BidsProvider>
       <NotificationProvider>
       <Toaster />
@@ -44,12 +48,15 @@ const App = () => (
           <Route path="/shop/dashboard" element={<ShopDashboard />} />
           <Route path="/shop/dashboard/request/:id" element={<ShopRequestDetail />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/dashboard/request/:id" element={<AdminRequestDetail />} />
+          <Route path="/settings" element={<Settings />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
       </NotificationProvider>
       </BidsProvider>
+      </LanguageProvider>
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>

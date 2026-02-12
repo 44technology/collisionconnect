@@ -28,16 +28,19 @@ import {
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { getShopRequestById } from "@/lib/shopRequests";
 import { useBids, shopAmountToCustomerPrice } from "@/lib/bidsStore";
+import { useLanguage } from "@/lib/LanguageContext";
 import { toast } from "sonner";
 
 const ShopRequestDetail = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { id } = useParams<{ id: string }>();
+  const { t } = useLanguage();
   const { addBid, getWinningBidAmount } = useBids();
   const [bidAmount, setBidAmount] = useState("");
   const [bidNote, setBidNote] = useState("");
   const [bidDialogOpen, setBidDialogOpen] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const requestId = id ? parseInt(id, 10) : NaN;
   const request = getShopRequestById(requestId);
   const myBid = (location.state as { myBid?: number } | null)?.myBid;
@@ -46,8 +49,8 @@ const ShopRequestDetail = () => {
     if (!bidAmount || !request) return;
     const amount = parseInt(bidAmount, 10);
     if (Number.isNaN(amount)) return;
-    addBid(request.id, amount, bidNote);
-    toast.success("Your bid has been submitted successfully!");
+    addBid(request.id, amount, bidNote, "ABC Body Shop");
+    toast.success(t("bidSubmitted"));
     setBidAmount("");
     setBidNote("");
     setBidDialogOpen(false);
@@ -58,8 +61,8 @@ const ShopRequestDetail = () => {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <p className="text-muted-foreground mb-4">Request not found.</p>
-          <Button onClick={() => navigate("/shop/dashboard")}>Back to Dashboard</Button>
+          <p className="text-muted-foreground mb-4">{t("requestNotFound")}</p>
+          <Button onClick={() => navigate("/shop/dashboard")}>{t("backToDashboard")}</Button>
         </div>
       </div>
     );
@@ -78,7 +81,7 @@ const ShopRequestDetail = () => {
                 onClick={() => navigate("/shop/dashboard")}
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
+                {t("back")}
               </Button>
               <div className="flex items-center gap-2">
                 <div className="w-10 h-10 bg-primary-foreground/10 rounded-xl flex items-center justify-center">
@@ -88,7 +91,7 @@ const ShopRequestDetail = () => {
                   <span className="text-xl font-display font-bold">
                     Collision <span className="text-accent">Collect</span>
                   </span>
-                  <span className="text-xs block text-primary-foreground/60">Body Shop Panel</span>
+                  <span className="text-xs block text-primary-foreground/60">{t("bodyShopPanel")}</span>
                 </div>
               </div>
             </div>
@@ -208,19 +211,34 @@ const ShopRequestDetail = () => {
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {request.imageUrls.map((url, index) => (
                   <div key={index} className="space-y-1">
-                    <div className="aspect-[3/2] rounded-lg border border-border overflow-hidden bg-muted">
+                    <button
+                      type="button"
+                      className="aspect-[3/2] w-full rounded-lg border border-border overflow-hidden bg-muted cursor-pointer hover:ring-2 hover:ring-accent/50 transition-all focus:outline-none focus:ring-2 focus:ring-accent"
+                      onClick={() => setLightboxImage(url)}
+                    >
                       <img
                         src={url}
                         alt={request.imageLabels[index] ?? `Photo ${index + 1}`}
                         className="w-full h-full object-cover"
                       />
-                    </div>
+                    </button>
                     <p className="text-xs font-medium text-muted-foreground">
                       {request.imageLabels[index] ?? `Photo ${index + 1}`}
                     </p>
                   </div>
                 ))}
               </div>
+              <Dialog open={!!lightboxImage} onOpenChange={(open) => !open && setLightboxImage(null)}>
+                <DialogContent className="max-w-[95vw] max-h-[95vh] w-auto p-2 border-0 bg-black/95">
+                  {lightboxImage && (
+                    <img
+                      src={lightboxImage}
+                      alt=""
+                      className="max-w-full max-h-[90vh] w-auto h-auto object-contain rounded"
+                    />
+                  )}
+                </DialogContent>
+              </Dialog>
             </CardContent>
           </Card>
 
@@ -231,7 +249,7 @@ const ShopRequestDetail = () => {
               className="border-white/50 bg-white/15 text-white hover:bg-white/25 hover:text-white hover:border-white/70"
               onClick={() => navigate("/shop/dashboard")}
             >
-              Back to list
+              {t("backToList")}
             </Button>
             {myBid == null && (
               <Button
@@ -240,7 +258,7 @@ const ShopRequestDetail = () => {
                 onClick={() => setBidDialogOpen(true)}
               >
                 <Send className="w-4 h-4 mr-2" />
-                Place Bid
+                {t("placeBid")}
               </Button>
             )}
           </div>
@@ -251,20 +269,20 @@ const ShopRequestDetail = () => {
       <Dialog open={bidDialogOpen} onOpenChange={setBidDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Place Bid</DialogTitle>
+            <DialogTitle>{t("placeBidButton")}</DialogTitle>
             <DialogDescription>
-              Enter your bid for {request?.vehicle}. Your bid is the amount you will receive (before platform fee).
+              {t("enterBid")} {request?.vehicle}. {t("bidNote")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <div className="p-3 bg-secondary rounded-lg">
               <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Insurance Value:</span>
+                <span className="text-sm text-muted-foreground">{t("insuranceValueLabel")}:</span>
                 <span className="font-bold">${request?.insuranceValue.toLocaleString()}</span>
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="bidAmount">Your bid amount ($) – you receive this</Label>
+              <Label htmlFor="bidAmount">{t("yourBidAmount")}</Label>
               <div className="relative">
                 <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <Input
@@ -278,12 +296,12 @@ const ShopRequestDetail = () => {
               </div>
               {bidAmount && !Number.isNaN(parseInt(bidAmount, 10)) && (
                 <p className="text-xs text-muted-foreground">
-                  Customer will see: <span className="font-medium text-foreground">${shopAmountToCustomerPrice(parseInt(bidAmount, 10)).toLocaleString()}</span> (20% platform fee)
+                  {t("customerWillSee")}: <span className="font-medium text-foreground">${shopAmountToCustomerPrice(parseInt(bidAmount, 10)).toLocaleString()}</span> (20% platform fee)
                 </p>
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="bidNote">Note (Optional)</Label>
+              <Label htmlFor="bidNote">{t("noteOptional")}</Label>
               <Textarea
                 id="bidNote"
                 placeholder="Estimated completion time, additional services, etc."
@@ -293,7 +311,7 @@ const ShopRequestDetail = () => {
               />
             </div>
             <Button variant="hero" className="w-full" onClick={handleBidSubmit}>
-              Submit Bid
+              {t("submitBid")}
             </Button>
           </div>
         </DialogContent>

@@ -6,11 +6,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Shield, Mail, Lock, ArrowLeft } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/authContext";
+import { useLanguage } from "@/lib/LanguageContext";
 
 const LoginAdmin = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const { login } = useAuth();
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -27,7 +29,7 @@ const LoginAdmin = () => {
           className="inline-flex items-center gap-2 text-primary-foreground/70 hover:text-primary-foreground mb-8 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Home
+          {t("backToHome")}
         </Link>
 
         <Card className="border border-border/80 shadow-xl">
@@ -37,15 +39,15 @@ const LoginAdmin = () => {
                 <Shield className="w-8 h-8 text-accent" />
               </div>
             </div>
-            <CardTitle className="text-2xl font-display">Admin Login</CardTitle>
+            <CardTitle className="text-2xl font-display">{t("adminLogin")}</CardTitle>
             <CardDescription>
-              Sign in to manage requests and release bids to customers
+              {t("adminLoginDesc")}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">{t("email")}</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                   <Input
@@ -60,7 +62,7 @@ const LoginAdmin = () => {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">{t("password")}</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                   <Input
@@ -75,16 +77,16 @@ const LoginAdmin = () => {
                 </div>
               </div>
               <Button type="submit" variant="hero" className="w-full" size="lg">
-                Sign In as Admin
+                {t("signInAsAdmin")}
               </Button>
             </form>
             <div className="mt-4 pt-4 border-t border-border text-center">
               <Link to="/login" className="text-sm text-muted-foreground hover:text-accent transition-colors">
-                Customer login →
+                {t("customerLogin")} →
               </Link>
               <span className="mx-2 text-muted-foreground">|</span>
               <Link to="/login/shop" className="text-sm text-muted-foreground hover:text-accent transition-colors">
-                Body shop login →
+                {t("bodyShopLogin")} →
               </Link>
             </div>
           </CardContent>

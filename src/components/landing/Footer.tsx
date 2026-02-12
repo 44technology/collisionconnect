@@ -1,7 +1,9 @@
 import { Car, Mail, Phone, MapPin } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useLanguage } from "@/lib/LanguageContext";
 
 const Footer = () => {
+  const { t, locale, setLocale } = useLanguage();
   return (
     <footer className="bg-primary py-16">
       <div className="container mx-auto px-4">
@@ -42,7 +44,7 @@ const Footer = () => {
               </li>
               <li>
                 <Link to="/login/admin" className="text-primary-foreground/60 hover:text-accent transition-colors">
-                  Admin
+                  {t("admin")}
                 </Link>
               </li>
               <li>
@@ -73,9 +75,19 @@ const Footer = () => {
           </div>
         </div>
 
-        <div className="border-t border-primary-foreground/10 mt-12 pt-8 text-center">
+        <div className="border-t border-primary-foreground/10 mt-12 pt-8 flex flex-col items-center gap-2 text-center">
           <p className="text-primary-foreground/40 text-sm">
             © 2024 Collision Collect. All rights reserved.
+          </p>
+          <p className="text-primary-foreground/50 text-xs">
+            {t("language")}:{" "}
+            <button type="button" onClick={() => setLocale("en")} className={locale === "en" ? "text-accent font-medium" : "hover:text-accent transition-colors"}>
+              {t("english")}
+            </button>
+            {" · "}
+            <button type="button" onClick={() => setLocale("es")} className={locale === "es" ? "text-accent font-medium" : "hover:text-accent transition-colors"}>
+              {t("spanish")}
+            </button>
           </p>
         </div>
       </div>

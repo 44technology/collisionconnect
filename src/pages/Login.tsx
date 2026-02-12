@@ -6,11 +6,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Car, Mail, Lock, ArrowLeft } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/authContext";
+import { useLanguage } from "@/lib/LanguageContext";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const { login } = useAuth();
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -28,7 +30,7 @@ const Login = () => {
           className="inline-flex items-center gap-2 text-primary-foreground/70 hover:text-primary-foreground mb-8 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Home
+          {t("backToHome")}
         </Link>
 
         <Card className="border border-border/80 shadow-xl">
@@ -38,16 +40,16 @@ const Login = () => {
                 <Car className="w-8 h-8 text-accent-foreground" />
               </div>
             </div>
-            <CardTitle className="text-2xl font-display">Welcome Back</CardTitle>
+            <CardTitle className="text-2xl font-display">{t("welcomeBack")}</CardTitle>
             <CardDescription>
-              Sign in to your account
+              {t("signInToAccount")}
             </CardDescription>
           </CardHeader>
           
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">{t("email")}</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                   <Input
@@ -63,7 +65,7 @@ const Login = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">{t("password")}</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                   <Input
@@ -81,31 +83,31 @@ const Login = () => {
               <div className="flex items-center justify-between text-sm">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" className="rounded border-border" />
-                  <span className="text-muted-foreground">Remember me</span>
+                  <span className="text-muted-foreground">{t("rememberMe")}</span>
                 </label>
                 <a href="#" className="text-accent hover:underline">
-                  Forgot password
+                  {t("forgotPassword")}
                 </a>
               </div>
 
               <Button type="submit" variant="hero" className="w-full" size="lg">
-                Sign In
+                {t("signIn")}
               </Button>
             </form>
 
             <div className="mt-6 text-center text-sm">
-              <span className="text-muted-foreground">Don't have an account? </span>
+              <span className="text-muted-foreground">{t("noAccount")} </span>
               <Link to="/register" className="text-accent hover:underline font-medium">
-                Register
+                {t("register")}
               </Link>
             </div>
 
             <div className="mt-4 pt-4 border-t border-border text-center space-y-1">
               <Link to="/login/shop" className="block text-sm text-muted-foreground hover:text-accent transition-colors">
-                Sign in as Body Shop →
+                {t("signInAsBodyShop")} →
               </Link>
               <Link to="/login/admin" className="block text-sm text-muted-foreground hover:text-accent transition-colors">
-                Admin login →
+                {t("adminLogin")} →
               </Link>
             </div>
           </CardContent>

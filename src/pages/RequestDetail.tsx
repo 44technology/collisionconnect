@@ -1,10 +1,23 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Car, ArrowLeft, Clock, CheckCircle, FileText, DollarSign, Building2, LogOut, Info } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Car, ArrowLeft, Clock, CheckCircle, FileText, DollarSign, Building2, LogOut, CreditCard, Lock } from "lucide-react";
 import { useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useBids, shopAmountToCustomerPrice } from "@/lib/bidsStore";
+import { useLanguage } from "@/lib/LanguageContext";
 import { useNotifications } from "@/lib/notificationContext";
+import { toast } from "sonner";
 
 const demoRequests = [
   { id: 1, vehicle: "2022 Toyota Camry", damage: "Front bumper and headlight damage", insuranceValue: 18000, status: "active", createdAt: "2024-01-15" },
@@ -15,12 +28,45 @@ const demoRequests = [
 const RequestDetail = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const { t } = useLanguage();
   const { getVisibleBids, getBidsVisibleToCustomer } = useBids();
   const { notifications, markAsRead } = useNotifications();
   const requestId = id ? parseInt(id, 10) : NaN;
   const request = demoRequests.find((r) => r.id === requestId);
   const bidsVisible = request ? getBidsVisibleToCustomer(request.id) : false;
   const bids = request && bidsVisible ? getVisibleBids(request.id) : [];
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState<number | null>(null);
+  const [cardNumber, setCardNumber] = useState("");
+  const [cardExpiry, setCardExpiry] = useState("");
+  const [cardCvc, setCardCvc] = useState("");
+  const [nameOnCard, setNameOnCard] = useState("");
+
+  const bestCustomerPrice = bids.length > 0 ? Math.min(...bids.map((b) => shopAmountToCustomerPrice(b.amount))) : null;
+
+  const handlePayClick = (amount: number) => {
+    setPaymentAmount(amount);
+    setCardNumber("");
+    setCardExpiry("");
+    setCardCvc("");
+    setNameOnCard("");
+    setPaymentDialogOpen(true);
+  };
+
+  const handleConfirmPayment = () => {
+    if (paymentAmount == null) return;
+    if (!cardNumber.trim() || !cardExpiry.trim() || !cardCvc.trim() || !nameOnCard.trim()) {
+      toast.error(t("fillCardDetails"));
+      return;
+    }
+    toast.success(t("paymentSuccess"));
+    setPaymentDialogOpen(false);
+    setPaymentAmount(null);
+    setCardNumber("");
+    setCardExpiry("");
+    setCardCvc("");
+    setNameOnCard("");
+  };
 
   useEffect(() => {
     if (requestId && notifications.length > 0) {
@@ -114,13 +160,11 @@ const RequestDetail = () => {
                 <span className="text-muted-foreground">Insurance value:</span>
                 <span className="font-semibold">${request.insuranceValue.toLocaleString()}</span>
               </div>
-              {bidsVisible && bids.length > 0 && (
+              {bidsVisible && bestCustomerPrice != null && (
                 <div className="flex items-center gap-2 text-success">
                   <DollarSign className="w-4 h-4" />
-                  <span>Best price (incl. 20% platform fee):</span>
-                  <span className="font-semibold">
-                    ${Math.min(...bids.map((b) => shopAmountToCustomerPrice(b.amount))).toLocaleString()}
-                  </span>
+                  <span>{t("bestPrice")}:</span>
+                  <span className="font-semibold">${bestCustomerPrice.toLocaleString()}</span>
                 </div>
               )}
               {!bidsVisible && request.status === "active" && (
@@ -131,20 +175,36 @@ const RequestDetail = () => {
             </CardContent>
           </Card>
 
+          {bids.length > 0 && bestCustomerPrice != null && (
+            <Card className="border-accent/30">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-accent">
+                  <CreditCard className="w-5 h-5" />
+                  {t("payThroughPlatform")}
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">{t("payThroughPlatformDesc")}</p>
+                <div className="flex flex-wrap items-center gap-4 mt-3 p-4 rounded-lg bg-accent/10 border border-accent/20">
+                  <span className="text-sm text-muted-foreground">{t("youPay")}</span>
+                  <span className="text-2xl font-bold tabular-nums text-foreground">${bestCustomerPrice.toLocaleString()}</span>
+                  <Button variant="hero" size="lg" className="shrink-0" onClick={() => handlePayClick(bestCustomerPrice)}>
+                    <CreditCard className="w-4 h-4 mr-2" />
+                    {t("payNow")}
+                  </Button>
+                </div>
+              </CardHeader>
+            </Card>
+          )}
+
           {bids.length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Building2 className="w-5 h-5" />
-                  Offers ({bids.length})
+                  {t("offers")} ({bids.length})
                 </CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  Prices include 20% platform fee. You pay the amount shown; the body shop receives 80%.
+                  {t("youPay")} the amount shown. Pay securely with your card when you're ready.
                 </p>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg p-2 mt-1">
-                  <Info className="w-4 h-4 shrink-0" />
-                  <span>We add 20% commission to each bid. Example: $400 repair → you see $500.</span>
-                </div>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-3">
@@ -163,7 +223,7 @@ const RequestDetail = () => {
                               #{index + 1}
                             </div>
                             <div>
-                              <p className="font-medium">Offer from body shop</p>
+                              <p className="font-medium">{t("offerFromBodyShop")}</p>
                               {bid.note && (
                                 <p className="text-sm text-muted-foreground mt-1">{bid.note}</p>
                               )}
@@ -201,6 +261,82 @@ const RequestDetail = () => {
           )}
         </div>
       </main>
+
+      <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CreditCard className="w-5 h-5" />
+              {t("confirmPayment")}
+            </DialogTitle>
+            <DialogDescription>{t("confirmPaymentDesc")}</DialogDescription>
+          </DialogHeader>
+          {paymentAmount != null && (
+            <>
+              <div className="py-2 px-3 rounded-lg bg-accent/10 border border-accent/20">
+                <p className="text-xs text-muted-foreground">{t("youPay")}</p>
+                <p className="text-2xl font-bold tabular-nums text-foreground">${paymentAmount.toLocaleString()}</p>
+              </div>
+              <div className="space-y-3 pt-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="cardNumber">{t("cardNumber")}</Label>
+                  <Input
+                    id="cardNumber"
+                    placeholder="4242 4242 4242 4242"
+                    value={cardNumber}
+                    onChange={(e) => setCardNumber(e.target.value)}
+                    maxLength={19}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="cardExpiry">{t("cardExpiry")}</Label>
+                    <Input
+                      id="cardExpiry"
+                      placeholder="MM/YY"
+                      value={cardExpiry}
+                      onChange={(e) => setCardExpiry(e.target.value)}
+                      maxLength={5}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="cardCvc">{t("cardCvc")}</Label>
+                    <Input
+                      id="cardCvc"
+                      placeholder="123"
+                      type="password"
+                      value={cardCvc}
+                      onChange={(e) => setCardCvc(e.target.value)}
+                      maxLength={4}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="nameOnCard">{t("nameOnCard")}</Label>
+                  <Input
+                    id="nameOnCard"
+                    placeholder="John Doe"
+                    value={nameOnCard}
+                    onChange={(e) => setNameOnCard(e.target.value)}
+                  />
+                </div>
+                <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Lock className="w-3.5 h-3.5" />
+                  {t("securePayment")}
+                </p>
+              </div>
+            </>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPaymentDialogOpen(false)}>
+              {t("cancel")}
+            </Button>
+            <Button variant="hero" onClick={handleConfirmPayment}>
+              {t("payNow")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -9,12 +9,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Car, Plus, Clock, CheckCircle, DollarSign, LogOut, FileText, Eye, Bell } from "lucide-react";
+import { Car, Plus, Clock, CheckCircle, DollarSign, LogOut, FileText, Eye, Bell, Settings } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useBids, shopAmountToCustomerPrice } from "@/lib/bidsStore";
+import { useLanguage } from "@/lib/LanguageContext";
 import { useNotifications } from "@/lib/notificationContext";
 
-const demoRequests = [
+type RequestStatus = "active" | "pending" | "completed";
+type ListFilter = "all" | "active" | "completed" | "savings";
+
+const demoRequests: { id: number; vehicle: string; damage: string; insuranceValue: number; status: RequestStatus; createdAt: string }[] = [
   { id: 1, vehicle: "2022 Toyota Camry", damage: "Front bumper and headlight damage", insuranceValue: 18000, status: "active", createdAt: "2024-01-15" },
   { id: 2, vehicle: "2021 Honda Civic", damage: "Right door and fender damage", insuranceValue: 12000, status: "pending", createdAt: "2024-01-18" },
   { id: 3, vehicle: "2020 Ford F-150", damage: "Rear bumper damage", insuranceValue: 8000, status: "completed", createdAt: "2024-01-10" },
@@ -22,9 +26,11 @@ const demoRequests = [
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const { getVisibleBids, getBidsVisibleToCustomer } = useBids();
   const { notifications, getUnreadCount, markAsRead, markAllAsRead } = useNotifications();
   const [requests] = useState(demoRequests);
+  const [listFilter, setListFilter] = useState<ListFilter>("all");
   const unreadCount = getUnreadCount();
 
   const getBidStats = (requestId: number) => {
@@ -35,6 +41,20 @@ const Dashboard = () => {
     const bestCustomerPrice = count > 0 ? Math.min(...bids.map((b) => shopAmountToCustomerPrice(b.amount))) : null;
     return { bidsCount: count, bestBid: bestCustomerPrice };
   };
+
+  const stats = {
+    total: requests.length,
+    active: requests.filter((r) => r.status === "active").length,
+    completed: requests.filter((r) => r.status === "completed").length,
+    withSavings: requests.filter((r) => getBidStats(r.id).bestBid != null).length,
+  };
+
+  const filteredRequests = (() => {
+    if (listFilter === "active") return requests.filter((r) => r.status === "active");
+    if (listFilter === "completed") return requests.filter((r) => r.status === "completed");
+    if (listFilter === "savings") return requests.filter((r) => getBidStats(r.id).bestBid != null);
+    return requests;
+  })();
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -49,14 +69,14 @@ const Dashboard = () => {
         return (
           <span className="inline-flex items-center gap-1 px-2 py-1 bg-muted text-muted-foreground rounded-full text-xs font-medium">
             <FileText className="w-3 h-3" />
-            Pending Approval
+            {t("pendingApproval")}
           </span>
         );
       case "completed":
         return (
           <span className="inline-flex items-center gap-1 px-2 py-1 bg-success/10 text-success rounded-full text-xs font-medium">
             <CheckCircle className="w-3 h-3" />
-            Completed
+            {t("completed")}
           </span>
         );
       default:
@@ -92,18 +112,18 @@ const Dashboard = () => {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-72">
-                  <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+                  <DropdownMenuLabel>{t("notifications")}</DropdownMenuLabel>
                   {unreadCount > 0 && (
                     <>
                       <DropdownMenuItem onSelect={(e) => { e.preventDefault(); markAllAsRead(); }}>
-                        Mark all as read
+                        {t("markAllAsRead")}
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                     </>
                   )}
                   {notifications.length === 0 ? (
                     <div className="py-4 text-center text-sm text-muted-foreground">
-                      No notifications
+                      {t("noNotifications")}
                     </div>
                   ) : (
                     notifications.slice(0, 10).map((n) => (
@@ -125,11 +145,15 @@ const Dashboard = () => {
                 </DropdownMenuContent>
               </DropdownMenu>
               <span className="text-sm text-muted-foreground hidden md:block">
-                Welcome, <span className="font-medium text-foreground">John Doe</span>
+                {t("welcome")}, <span className="font-medium text-foreground">John Doe</span>
               </span>
+              <Button variant="ghost" size="sm" onClick={() => navigate("/settings")}>
+                <Settings className="w-4 h-4 mr-2" />
+                {t("settings")}
+              </Button>
               <Button variant="ghost" size="sm" onClick={() => navigate("/")}>
                 <LogOut className="w-4 h-4 mr-2" />
-                Logout
+                {t("logout")}
               </Button>
             </div>
           </div>
@@ -138,48 +162,60 @@ const Dashboard = () => {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
-        {/* Stats */}
+        {/* Stats — tıklanınca liste filtrelenir */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <Card>
+          <Card
+            className={`cursor-pointer transition-all border-2 ${listFilter === "all" ? "border-accent bg-accent/10" : "border-border hover:border-accent/30"}`}
+            onClick={() => setListFilter("all")}
+          >
             <CardContent className="p-3">
               <div className="flex items-center gap-2">
                 <div className="w-9 h-9 bg-accent/10 rounded-lg flex items-center justify-center shrink-0">
                   <FileText className="w-4 h-4 text-accent" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xl font-bold tabular-nums">{requests.length}</p>
-                  <p className="text-xs text-muted-foreground">Total Requests</p>
+                  <p className="text-xl font-bold tabular-nums">{stats.total}</p>
+                  <p className="text-xs text-muted-foreground">{t("totalRequests")}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card
+            className={`cursor-pointer transition-all border-2 ${listFilter === "active" ? "border-accent bg-accent/10" : "border-border hover:border-accent/30"}`}
+            onClick={() => setListFilter("active")}
+          >
             <CardContent className="p-3">
               <div className="flex items-center gap-2">
                 <div className="w-9 h-9 bg-accent/10 rounded-lg flex items-center justify-center shrink-0">
                   <Clock className="w-4 h-4 text-accent" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xl font-bold tabular-nums">{requests.filter(r => r.status === "active").length}</p>
-                  <p className="text-xs text-muted-foreground">Active</p>
+                  <p className="text-xl font-bold tabular-nums">{stats.active}</p>
+                  <p className="text-xs text-muted-foreground">{t("active")}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card
+            className={`cursor-pointer transition-all border-2 ${listFilter === "completed" ? "border-success bg-success/10" : "border-border hover:border-success/30"}`}
+            onClick={() => setListFilter("completed")}
+          >
             <CardContent className="p-3">
               <div className="flex items-center gap-2">
                 <div className="w-9 h-9 bg-success/10 rounded-lg flex items-center justify-center shrink-0">
                   <CheckCircle className="w-4 h-4 text-success" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xl font-bold tabular-nums">{requests.filter(r => r.status === "completed").length}</p>
-                  <p className="text-xs text-muted-foreground">Completed</p>
+                  <p className="text-xl font-bold tabular-nums">{stats.completed}</p>
+                  <p className="text-xs text-muted-foreground">{t("completed")}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card
+            className={`cursor-pointer transition-all border-2 ${listFilter === "savings" ? "border-success bg-success/10" : "border-border hover:border-success/30"}`}
+            onClick={() => setListFilter("savings")}
+          >
             <CardContent className="p-3">
               <div className="flex items-center gap-2">
                 <div className="w-9 h-9 bg-success/10 rounded-lg flex items-center justify-center shrink-0">
@@ -187,25 +223,30 @@ const Dashboard = () => {
                 </div>
                 <div className="min-w-0">
                   <p className="text-xl font-bold tabular-nums">$1,800</p>
-                  <p className="text-xs text-muted-foreground">Savings</p>
+                  <p className="text-xs text-muted-foreground">{t("savings")}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Actions */}
+        {/* Liste başlığı filtreye göre */}
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-display font-bold">My Requests</h2>
+          <h2 className="text-lg font-display font-bold">
+            {listFilter === "all" && t("myRequests")}
+            {listFilter === "active" && t("activeRequests")}
+            {listFilter === "completed" && t("completed")}
+            {listFilter === "savings" && t("requestsWithOffers")}
+          </h2>
           <Button variant="hero" onClick={() => navigate("/dashboard/new-request")}>
             <Plus className="w-4 h-4 mr-2" />
-            New Request
+            {t("newRequest")}
           </Button>
         </div>
 
         {/* Requests List */}
         <div className="space-y-3">
-          {requests.map((request) => (
+          {filteredRequests.map((request) => (
             <Card key={request.id} className="hover:border-accent/20">
               <CardContent className="p-4">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -221,7 +262,7 @@ const Dashboard = () => {
                       <p className="text-xs text-muted-foreground mb-1 line-clamp-1">{request.damage}</p>
                       <div className="flex items-center gap-3 text-xs">
                         <span className="text-muted-foreground">
-                          Insurance: <span className="font-medium text-foreground">${request.insuranceValue.toLocaleString()}</span>
+                          {t("insurance")}: <span className="font-medium text-foreground">${request.insuranceValue.toLocaleString()}</span>
                         </span>
                         {(() => {
                           const { bidsCount, bestBid } = getBidStats(request.id);
@@ -229,12 +270,12 @@ const Dashboard = () => {
                             <>
                               {bidsCount > 0 && (
                                 <span className="text-muted-foreground">
-                                  Offers: <span className="font-medium text-foreground">{bidsCount}</span>
+                                  {t("offers")}: <span className="font-medium text-foreground">{bidsCount}</span>
                                 </span>
                               )}
                               {bestBid != null && (
-                                <span className="text-success font-medium" title="Includes 20% platform fee">
-                                  Best: ${bestBid.toLocaleString()}
+                                <span className="text-success font-medium" title={t("bestOffer")}>
+                                  {t("best")}: ${bestBid.toLocaleString()}
                                 </span>
                               )}
                             </>
@@ -252,7 +293,7 @@ const Dashboard = () => {
                       onClick={() => navigate(`/dashboard/request/${request.id}`)}
                     >
                       <Eye className="w-4 h-4 mr-2" />
-                      Details
+                      {t("details")}
                     </Button>
                     {request.status === "active" && getBidStats(request.id).bidsCount > 0 && (
                       <Button
@@ -261,7 +302,7 @@ const Dashboard = () => {
                         className="bg-accent text-accent-foreground hover:bg-accent/90"
                         onClick={() => navigate(`/dashboard/request/${request.id}`)}
                       >
-                        View Bids
+                        {t("viewBids")}
                       </Button>
                     )}
                   </div>
