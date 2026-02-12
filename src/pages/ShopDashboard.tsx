@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Building2, Car, Clock, CheckCircle, DollarSign, LogOut, Eye, MapPin, Calendar, Trophy, TrendingUp, Send, Settings, Wallet } from "lucide-react";
+import { Building2, Car, Clock, CheckCircle, DollarSign, LogOut, Eye, MapPin, Calendar, Trophy, TrendingUp, Send, Settings, Wallet, CreditCard } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useBids } from "@/lib/bidsStore";
 import { useLanguage } from "@/lib/LanguageContext";
@@ -147,6 +147,15 @@ const ShopDashboard = () => {
               <span className="text-sm text-primary-foreground/70 hidden md:block">
                 <span className="font-medium text-primary-foreground">ABC Body Shop</span>
               </span>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                className="text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"
+                onClick={() => navigate("/shop/subscription")}
+              >
+                <CreditCard className="w-4 h-4 mr-2" />
+                {t("subscription")}
+              </Button>
               <Button 
                 variant="ghost" 
                 size="sm"

@@ -5,6 +5,7 @@ import { Shield, Car, LogOut, Eye, DollarSign, Trophy, Settings, Building2, User
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/authContext";
 import { useBids } from "@/lib/bidsStore";
+import { getSubscriptionStats } from "@/lib/subscriptionStore";
 import { useLanguage } from "@/lib/LanguageContext";
 import { shopRequestsDetail } from "@/lib/shopRequests";
 
@@ -22,15 +23,14 @@ const AdminDashboard = () => {
 
   const payoutStats = (() => {
     let totalPaidToShops = 0;
-    let totalCommission = 0;
     shopRequestsDetail.forEach((r) => {
       const winning = getWinningBidAmount(r.id);
       if (winning == null) return;
       totalPaidToShops += winning;
-      totalCommission += winning / 0.8 * 0.2;
     });
-    return { totalPaidToShops, totalCommission };
+    return { totalPaidToShops };
   })();
+  const subscriptionStats = getSubscriptionStats();
 
   useEffect(() => {
     if (user?.userType !== "admin") {
@@ -100,7 +100,7 @@ const AdminDashboard = () => {
           </Card>
         </div>
 
-        {/* Payouts */}
+        {/* Payouts / Subscription revenue */}
         <Card className="mb-8 border-border border-accent/30">
           <CardContent className="p-4">
             <h2 className="text-base font-display font-bold mb-3 flex items-center gap-2 text-accent">
@@ -109,12 +109,12 @@ const AdminDashboard = () => {
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <p className="text-2xl font-bold tabular-nums text-foreground">${Math.round(payoutStats.totalPaidToShops).toLocaleString()}</p>
-                <p className="text-sm text-muted-foreground">{t("totalPaidToShops")}</p>
+                <p className="text-2xl font-bold tabular-nums text-foreground">{subscriptionStats.activeCount}</p>
+                <p className="text-sm text-muted-foreground">{t("activeSubscriptions")}</p>
               </div>
               <div>
-                <p className="text-2xl font-bold tabular-nums text-accent">${Math.round(payoutStats.totalCommission).toLocaleString()}</p>
-                <p className="text-sm text-muted-foreground">{t("ourCommission")}</p>
+                <p className="text-2xl font-bold tabular-nums text-accent">${subscriptionStats.monthlyRevenue.toLocaleString()}</p>
+                <p className="text-sm text-muted-foreground">{t("subscriptionRevenue")}/month</p>
               </div>
             </div>
           </CardContent>

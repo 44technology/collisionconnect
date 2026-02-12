@@ -27,7 +27,8 @@ import {
 } from "lucide-react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { getShopRequestById } from "@/lib/shopRequests";
-import { useBids, shopAmountToCustomerPrice } from "@/lib/bidsStore";
+import { useBids } from "@/lib/bidsStore";
+import { useSubscription } from "@/lib/subscriptionStore";
 import { useLanguage } from "@/lib/LanguageContext";
 import { toast } from "sonner";
 
@@ -37,6 +38,7 @@ const ShopRequestDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { t } = useLanguage();
   const { addBid, getWinningBidAmount } = useBids();
+  const { canPlaceBid, recordBidPlaced, freeBidsRemaining, isSubscribed } = useSubscription();
   const [bidAmount, setBidAmount] = useState("");
   const [bidNote, setBidNote] = useState("");
   const [bidDialogOpen, setBidDialogOpen] = useState(false);
@@ -49,6 +51,13 @@ const ShopRequestDetail = () => {
     if (!bidAmount || !request) return;
     const amount = parseInt(bidAmount, 10);
     if (Number.isNaN(amount)) return;
+    if (!canPlaceBid()) {
+      toast.error(t("subscribeToPlaceMore"));
+      setBidDialogOpen(false);
+      navigate("/shop/subscription");
+      return;
+    }
+    recordBidPlaced();
     addBid(request.id, amount, bidNote, "ABC Body Shop");
     toast.success(t("bidSubmitted"));
     setBidAmount("");
@@ -164,7 +173,7 @@ const ShopRequestDetail = () => {
                     if (Math.abs(pctAbove) < 0.5) {
                       return (
                         <p className="text-sm text-success font-medium mt-1 flex items-center gap-1">
-                          <Trophy className="w-4 h-4" /> You won this deal
+                          <Trophy className="w-4 h-4" /> {t("youWon")}
                         </p>
                       );
                     }
@@ -265,55 +274,73 @@ const ShopRequestDetail = () => {
         </div>
       </main>
 
-      {/* Place Bid dialog – sadece detayları gördükten sonra */}
+      {/* Place Bid dialog */}
       <Dialog open={bidDialogOpen} onOpenChange={setBidDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("placeBidButton")}</DialogTitle>
             <DialogDescription>
-              {t("enterBid")} {request?.vehicle}. {t("bidNote")}
+              {canPlaceBid()
+                ? `${t("enterBid")} ${request?.vehicle}. ${t("bidNote")}`
+                : t("subscribeToPlaceMore")}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 pt-2">
-            <div className="p-3 bg-secondary rounded-lg">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">{t("insuranceValueLabel")}:</span>
-                <span className="font-bold">${request?.insuranceValue.toLocaleString()}</span>
-              </div>
+          {!canPlaceBid() ? (
+            <div className="space-y-4 py-2">
+              <p className="text-sm text-muted-foreground">
+                {t("firstBidsFree").replace("{count}", "3")}. {t("subscribeToPlaceMore")}
+              </p>
+              <Button variant="hero" className="w-full" onClick={() => { setBidDialogOpen(false); navigate("/shop/subscription"); }}>
+                {t("subscription")}
+              </Button>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="bidAmount">{t("yourBidAmount")}</Label>
-              <div className="relative">
-                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <Input
-                  id="bidAmount"
-                  type="number"
-                  placeholder="12000"
-                  value={bidAmount}
-                  onChange={(e) => setBidAmount(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              {bidAmount && !Number.isNaN(parseInt(bidAmount, 10)) && (
-                <p className="text-xs text-muted-foreground">
-                  {t("customerWillSee")}: <span className="font-medium text-foreground">${shopAmountToCustomerPrice(parseInt(bidAmount, 10)).toLocaleString()}</span> (20% platform fee)
+          ) : (
+            <div className="space-y-4 pt-2">
+              {!isSubscribed && freeBidsRemaining > 0 && (
+                <p className="text-xs text-accent font-medium">
+                  {t("firstBidsFree").replace("{count}", String(freeBidsRemaining))}
                 </p>
               )}
+              <div className="p-3 bg-secondary rounded-lg">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">{t("insuranceValueLabel")}:</span>
+                  <span className="font-bold">${request?.insuranceValue.toLocaleString()}</span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="bidAmount">{t("yourBidAmount")}</Label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    id="bidAmount"
+                    type="number"
+                    placeholder="12000"
+                    value={bidAmount}
+                    onChange={(e) => setBidAmount(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                {bidAmount && !Number.isNaN(parseInt(bidAmount, 10)) && (
+                  <p className="text-xs text-muted-foreground">
+                    {t("customerWillSee")}: <span className="font-medium text-foreground">${parseInt(bidAmount, 10).toLocaleString()}</span>
+                  </p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="bidNote">{t("noteOptional")}</Label>
+                <Textarea
+                  id="bidNote"
+                  placeholder="Estimated completion time, additional services, etc."
+                  value={bidNote}
+                  onChange={(e) => setBidNote(e.target.value)}
+                  rows={2}
+                />
+              </div>
+              <Button variant="hero" className="w-full" onClick={handleBidSubmit}>
+                {t("submitBid")}
+              </Button>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="bidNote">{t("noteOptional")}</Label>
-              <Textarea
-                id="bidNote"
-                placeholder="Estimated completion time, additional services, etc."
-                value={bidNote}
-                onChange={(e) => setBidNote(e.target.value)}
-                rows={2}
-              />
-            </div>
-            <Button variant="hero" className="w-full" onClick={handleBidSubmit}>
-              {t("submitBid")}
-            </Button>
-          </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

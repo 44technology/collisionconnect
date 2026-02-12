@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Car, Plus, Clock, CheckCircle, DollarSign, LogOut, FileText, Eye, Bell, Settings } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useBids, shopAmountToCustomerPrice } from "@/lib/bidsStore";
+import { useBids } from "@/lib/bidsStore";
 import { useLanguage } from "@/lib/LanguageContext";
 import { useNotifications } from "@/lib/notificationContext";
 
@@ -38,8 +38,8 @@ const Dashboard = () => {
     if (!visible) return { bidsCount: 0, bestBid: null as number | null };
     const bids = getVisibleBids(requestId);
     const count = bids.length;
-    const bestCustomerPrice = count > 0 ? Math.min(...bids.map((b) => shopAmountToCustomerPrice(b.amount))) : null;
-    return { bidsCount: count, bestBid: bestCustomerPrice };
+    const bestBid = count > 0 ? Math.min(...bids.map((b) => b.amount)) : null;
+    return { bidsCount: count, bestBid };
   };
 
   const stats = {
