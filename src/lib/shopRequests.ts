@@ -12,6 +12,8 @@ export type ShopRequestDetail = {
   damage: string;
   insuranceValue: number;
   location: string;
+  /** Zip code for proximity search (body shop finds nearby requests) */
+  zipCode: string;
   createdAt: string;
   additionalNotes?: string;
   imageLabels: string[];
@@ -46,6 +48,7 @@ export const shopRequestsDetail: ShopRequestDetail[] = [
     damage: "Front bumper and headlight damage",
     insuranceValue: 18000,
     location: "New York, NY",
+    zipCode: "10001",
     createdAt: "2024-01-15",
     additionalNotes: "Driver side headlight broken. Bumper has crack and paint damage.",
     imageLabels: ["Front view", "Rear view", "Left side", "Right side", "Damage close-up", "Engine bay"],
@@ -68,6 +71,7 @@ export const shopRequestsDetail: ShopRequestDetail[] = [
     damage: "Left door and fender damage",
     insuranceValue: 14000,
     location: "Brooklyn, NY",
+    zipCode: "11201",
     createdAt: "2024-01-17",
     additionalNotes: "Dent on driver door, fender scratch. No structural damage.",
     imageLabels: ["Front view", "Rear view", "Left side (damage)", "Right side", "Damage close-up"],
@@ -89,6 +93,7 @@ export const shopRequestsDetail: ShopRequestDetail[] = [
     damage: "Rear bumper and trunk damage",
     insuranceValue: 22000,
     location: "Queens, NY",
+    zipCode: "11101",
     createdAt: "2024-01-18",
     additionalNotes: "Rear collision. Trunk latch may need adjustment.",
     imageLabels: ["Front view", "Rear view", "Left side", "Right side", "Damage close-up", "Trunk interior", "Rear bumper", "Wheel well"],
@@ -113,6 +118,7 @@ export const shopRequestsDetail: ShopRequestDetail[] = [
     damage: "Front bumper, hood and headlight damage",
     insuranceValue: 25000,
     location: "Manhattan, NY",
+    zipCode: "10019",
     createdAt: "2024-01-16",
     additionalNotes: "Hood bent, both headlights. Requesting OEM parts.",
     imageLabels: ["Front view", "Rear view", "Left side", "Right side", "Hood damage", "Headlight", "Engine bay"],

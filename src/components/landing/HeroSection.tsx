@@ -29,16 +29,16 @@ const HeroSection = () => {
             <Button 
               variant="ghost" 
               className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10"
-              onClick={() => navigate("/login")}
+              onClick={() => navigate("/login/shop")}
             >
-              Sign In
+              Body Shop Login
             </Button>
             <Button 
               variant="hero" 
               size="sm"
-              onClick={() => navigate("/register")}
+              onClick={() => navigate("/request/new")}
             >
-              Register
+              Get a quote
             </Button>
           </div>
         </nav>
@@ -66,10 +66,10 @@ const HeroSection = () => {
               <Button 
                 variant="hero" 
                 size="xl"
-                onClick={() => navigate("/register")}
+                onClick={() => navigate("/request/new")}
                 className="group"
               >
-                Get Started
+                Get started — add photos
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Button>
               <Button 

@@ -5,6 +5,9 @@ import { Building2, Car, Clock, CheckCircle, DollarSign, LogOut, Eye, MapPin, Ca
 import { useNavigate, useLocation } from "react-router-dom";
 import { useBids } from "@/lib/bidsStore";
 import { useLanguage } from "@/lib/LanguageContext";
+import { shopRequestsDetail } from "@/lib/shopRequests";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 type ShopRequest = {
   id: number;
@@ -12,59 +15,43 @@ type ShopRequest = {
   damage: string;
   insuranceValue: number;
   location: string;
+  zipCode: string;
   createdAt: string;
   images: number;
   myBid: number | null;
   bidDeadlineAt?: string;
 };
 
-// Demo data — pending talepler için teklif süresi 24 saat (bidDeadlineAt)
+/** Sort key for zip proximity: same zip = 0, same first 3 digits = 1, else 2; then by numeric distance */
+function zipProximitySortKey(requestZip: string, shopZip: string): number {
+  const r = requestZip.replace(/\D/g, "").slice(0, 5);
+  const s = shopZip.replace(/\D/g, "").slice(0, 5);
+  if (!s) return 0;
+  const rn = parseInt(r, 10) || 0;
+  const sn = parseInt(s, 10) || 0;
+  if (r === s) return 0;
+  if (r.slice(0, 3) === s.slice(0, 3)) return 10000 + Math.abs(rn - sn);
+  return 20000 + Math.abs(rn - sn);
+}
+
+// Demo data — built from shopRequestsDetail so zipCode stays in sync; myBid/bidDeadlineAt are local state
 const now = Date.now();
 const in24h = now + 24 * 60 * 60 * 1000;
-const demoRequests: ShopRequest[] = [
-  {
-    id: 1,
-    vehicle: "2022 Toyota Camry",
-    damage: "Front bumper and headlight damage",
-    insuranceValue: 18000,
-    location: "New York, NY",
-    createdAt: "2024-01-15",
-    images: 6,
-    myBid: null,
-    bidDeadlineAt: new Date(in24h).toISOString(),
-  },
-  {
-    id: 2,
-    vehicle: "2021 Honda Accord",
-    damage: "Left door and fender damage",
-    insuranceValue: 14000,
-    location: "Brooklyn, NY",
-    createdAt: "2024-01-17",
-    images: 5,
-    myBid: 11500,
-  },
-  {
-    id: 3,
-    vehicle: "2020 BMW 3 Series",
-    damage: "Rear bumper and trunk damage",
-    insuranceValue: 22000,
-    location: "Queens, NY",
-    createdAt: "2024-01-18",
-    images: 8,
-    myBid: null,
-    bidDeadlineAt: new Date(in24h + 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 4,
-    vehicle: "2019 Mercedes C-Class",
-    damage: "Front bumper, hood and headlight damage",
-    insuranceValue: 25000,
-    location: "Manhattan, NY",
-    createdAt: "2024-01-16",
-    images: 7,
-    myBid: 19500,
-  },
-];
+function buildDemoRequests(): ShopRequest[] {
+  return shopRequestsDetail.map((r, i) => ({
+    id: r.id,
+    vehicle: r.vehicle,
+    damage: r.damage,
+    insuranceValue: r.insuranceValue,
+    location: r.location,
+    zipCode: r.zipCode,
+    createdAt: r.createdAt,
+    images: r.imageUrls?.length ?? 0,
+    myBid: i === 1 ? 11500 : i === 3 ? 19500 : null,
+    bidDeadlineAt: i === 0 || i === 2 ? new Date(in24h + i * 60 * 60 * 1000).toISOString() : undefined,
+  }));
+}
+const initialDemoRequests = buildDemoRequests();
 
 type ListFilter = "all" | "bids" | "pending";
 
@@ -75,18 +62,34 @@ function getHoursLeft(deadlineAt: string): number | null {
   return Math.max(0, Math.floor(diff / (60 * 60 * 1000)));
 }
 
+const SHOP_ZIP_STORAGE_KEY = "collisioncollect-shop-zip";
+
 const ShopDashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useLanguage();
   const { getWinningBidAmount } = useBids();
-  const [requests, setRequests] = useState(demoRequests);
+  const [requests, setRequests] = useState<ShopRequest[]>(initialDemoRequests);
   const [listFilter, setListFilter] = useState<ListFilter>("all");
+  const [shopZip, setShopZip] = useState<string>(() => {
+    try {
+      return localStorage.getItem(SHOP_ZIP_STORAGE_KEY) ?? "";
+    } catch (_) {}
+    return "";
+  });
   const [, setTick] = useState(0);
+
   useEffect(() => {
     const t = setInterval(() => setTick((n) => n + 1), 60 * 1000);
     return () => clearInterval(t);
   }, []);
+
+  useEffect(() => {
+    try {
+      if (shopZip) localStorage.setItem(SHOP_ZIP_STORAGE_KEY, shopZip);
+      else localStorage.removeItem(SHOP_ZIP_STORAGE_KEY);
+    } catch (_) {}
+  }, [shopZip]);
 
   // Teklif detay sayfasından dönüldüğünde listeyi güncelle (Place Bid orada yapıldı)
   useEffect(() => {
@@ -106,9 +109,15 @@ const ShopDashboard = () => {
   };
 
   const filteredRequests = (() => {
-    if (listFilter === "bids") return requests.filter(r => r.myBid != null);
-    if (listFilter === "pending") return requests.filter(r => r.myBid == null);
-    return requests;
+    let list = requests;
+    if (listFilter === "bids") list = requests.filter(r => r.myBid != null);
+    else if (listFilter === "pending") list = requests.filter(r => r.myBid == null);
+    if (shopZip.trim()) {
+      list = [...list].sort((a, b) =>
+        zipProximitySortKey(a.zipCode, shopZip.trim()) - zipProximitySortKey(b.zipCode, shopZip.trim())
+      );
+    }
+    return list;
   })();
 
   const payoutStats = (() => {
@@ -233,6 +242,31 @@ const ShopDashboard = () => {
           </Card>
         </div>
 
+        {/* Zip code — show nearby requests first */}
+        <Card className="mb-6 border-border">
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="shop-zip" className="flex items-center gap-2 text-muted-foreground">
+                  <MapPin className="w-4 h-4" />
+                  {t("nearZipLabel")}
+                </Label>
+                <Input
+                  id="shop-zip"
+                  placeholder="e.g. 10001"
+                  value={shopZip}
+                  onChange={(e) => setShopZip(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                  maxLength={10}
+                  className="max-w-[140px]"
+                />
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {t("nearZipHint")}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Payouts */}
         <Card className="mb-6 border-border border-accent/30">
           <CardContent className="p-4">
@@ -300,6 +334,9 @@ const ShopDashboard = () => {
                         <span className="flex items-center gap-1 text-muted-foreground">
                           <MapPin className="w-4 h-4" />
                           {request.location}
+                          {request.zipCode && (
+                            <span className="font-medium text-foreground"> · {t("zip")} {request.zipCode}</span>
+                          )}
                         </span>
                         <span className="flex items-center gap-1 text-muted-foreground">
                           <Calendar className="w-4 h-4" />

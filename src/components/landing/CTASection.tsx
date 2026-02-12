@@ -20,17 +20,17 @@ const CTASection = () => {
             </h3>
             
             <p className="text-primary-foreground/70 mb-8">
-              Get the best offers for your damaged vehicle. Register for free 
-              and start receiving bids within minutes.
+              Get the best offers for your damaged vehicle. No signup — add photos, 
+              enter your details, then just your email. Free.
             </p>
             
             <Button 
               variant="hero" 
               size="lg"
-              onClick={() => navigate("/register")}
+              onClick={() => navigate("/request/new")}
               className="group"
             >
-              Register as Customer
+              Get a quote — start with photos
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </Button>
           </div>

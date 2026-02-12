@@ -16,6 +16,7 @@ import Register from "./pages/Register";
 import RegisterShop from "./pages/RegisterShop";
 import Dashboard from "./pages/Dashboard";
 import NewRequest from "./pages/NewRequest";
+import RequestSubmitted from "./pages/RequestSubmitted";
 import RequestDetail from "./pages/RequestDetail";
 import ShopDashboard from "./pages/ShopDashboard";
 import ShopRequestDetail from "./pages/ShopRequestDetail";
@@ -45,6 +46,8 @@ const App = () => (
           <Route path="/login/admin" element={<LoginAdmin />} />
           <Route path="/register" element={<Register />} />
           <Route path="/register/shop" element={<RegisterShop />} />
+          <Route path="/request/new" element={<NewRequest />} />
+          <Route path="/request/submitted" element={<RequestSubmitted />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/dashboard/new-request" element={<NewRequest />} />
           <Route path="/dashboard/request/:id" element={<RequestDetail />} />
