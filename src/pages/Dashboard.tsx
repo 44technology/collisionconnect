@@ -18,10 +18,10 @@ import { useNotifications } from "@/lib/notificationContext";
 type RequestStatus = "active" | "pending" | "completed";
 type ListFilter = "all" | "active" | "completed" | "savings";
 
-const demoRequests: { id: number; vehicle: string; damage: string; insuranceValue: number; status: RequestStatus; createdAt: string }[] = [
-  { id: 1, vehicle: "2022 Toyota Camry", damage: "Front bumper and headlight damage", insuranceValue: 18000, status: "active", createdAt: "2024-01-15" },
-  { id: 2, vehicle: "2021 Honda Civic", damage: "Right door and fender damage", insuranceValue: 12000, status: "pending", createdAt: "2024-01-18" },
-  { id: 3, vehicle: "2020 Ford F-150", damage: "Rear bumper damage", insuranceValue: 8000, status: "completed", createdAt: "2024-01-10" },
+const demoRequests: { id: number; vehicle: string; damage: string; trim?: string; desiredTimeframe?: string; insuranceValue: number; status: RequestStatus; createdAt: string }[] = [
+  { id: 1, vehicle: "2022 Toyota Camry", damage: "Front bumper and headlight damage", trim: "LE", desiredTimeframe: "2weeks", insuranceValue: 18000, status: "active", createdAt: "2024-01-15" },
+  { id: 2, vehicle: "2021 Honda Civic", damage: "Right door and fender damage", trim: "Sport", desiredTimeframe: "asap", insuranceValue: 12000, status: "pending", createdAt: "2024-01-18" },
+  { id: 3, vehicle: "2020 BMW 3 Series", damage: "Rear bumper and trunk damage", trim: "330i", desiredTimeframe: "3-4weeks", insuranceValue: 8000, status: "completed", createdAt: "2024-01-10" },
 ];
 
 const Dashboard = () => {
@@ -256,14 +256,18 @@ const Dashboard = () => {
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
-                        <h3 className="font-semibold text-sm">{request.vehicle}</h3>
+                        <h3 className="font-semibold text-sm">{request.vehicle}{request.trim ? ` ${request.trim}` : ""}</h3>
                         {getStatusBadge(request.status)}
                       </div>
                       <p className="text-xs text-muted-foreground mb-1 line-clamp-1">{request.damage}</p>
+                      {request.desiredTimeframe && (
+                        <p className="text-xs text-muted-foreground mb-1">
+                          {t("desiredTimeframeLabel")}: {t(
+                            { asap: "desiredTimeframeAsap", "1week": "desiredTimeframe1Week", "2weeks": "desiredTimeframe2Weeks", "3-4weeks": "desiredTimeframe3To4Weeks", "1month+": "desiredTimeframe1MonthPlus" }[request.desiredTimeframe] ?? "desiredTimeframeAsap"
+                          )}
+                        </p>
+                      )}
                       <div className="flex items-center gap-3 text-xs">
-                        <span className="text-muted-foreground">
-                          {t("insurance")}: <span className="font-medium text-foreground">${request.insuranceValue.toLocaleString()}</span>
-                        </span>
                         {(() => {
                           const { bidsCount, bestBid } = getBidStats(request.id);
                           return (

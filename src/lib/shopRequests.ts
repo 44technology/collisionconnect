@@ -7,6 +7,7 @@ export type ShopRequestDetail = {
   vehicle: string;
   make: string;
   model: string;
+  trim?: string;
   year: string;
   vin: string;
   damage: string;
@@ -15,6 +16,8 @@ export type ShopRequestDetail = {
   /** Zip code for proximity search (body shop finds nearby requests) */
   zipCode: string;
   createdAt: string;
+  /** asap | 1week | 2weeks | 3-4weeks | 1month+ */
+  desiredTimeframe?: string;
   additionalNotes?: string;
   imageLabels: string[];
   imageUrls: string[];
@@ -43,6 +46,7 @@ export const shopRequestsDetail: ShopRequestDetail[] = [
     vehicle: "2022 Toyota Camry",
     make: "Toyota",
     model: "Camry",
+    trim: "LE",
     year: "2022",
     vin: "4T1BF1FK5NU123456",
     damage: "Front bumper and headlight damage",
@@ -50,6 +54,7 @@ export const shopRequestsDetail: ShopRequestDetail[] = [
     location: "New York, NY",
     zipCode: "10001",
     createdAt: "2024-01-15",
+    desiredTimeframe: "2weeks",
     additionalNotes: "Driver side headlight broken. Bumper has crack and paint damage.",
     imageLabels: ["Front view", "Rear view", "Left side", "Right side", "Damage close-up", "Engine bay"],
     imageUrls: [
@@ -66,6 +71,7 @@ export const shopRequestsDetail: ShopRequestDetail[] = [
     vehicle: "2021 Honda Accord",
     make: "Honda",
     model: "Accord",
+    trim: "Sport",
     year: "2021",
     vin: "1HGCV1F13MA123456",
     damage: "Left door and fender damage",
@@ -73,6 +79,7 @@ export const shopRequestsDetail: ShopRequestDetail[] = [
     location: "Brooklyn, NY",
     zipCode: "11201",
     createdAt: "2024-01-17",
+    desiredTimeframe: "asap",
     additionalNotes: "Dent on driver door, fender scratch. No structural damage.",
     imageLabels: ["Front view", "Rear view", "Left side (damage)", "Right side", "Damage close-up"],
     imageUrls: [
@@ -88,6 +95,7 @@ export const shopRequestsDetail: ShopRequestDetail[] = [
     vehicle: "2020 BMW 3 Series",
     make: "BMW",
     model: "3 Series",
+    trim: "330i",
     year: "2020",
     vin: "3MW5R7C05L8B12345",
     damage: "Rear bumper and trunk damage",
@@ -95,6 +103,7 @@ export const shopRequestsDetail: ShopRequestDetail[] = [
     location: "Queens, NY",
     zipCode: "11101",
     createdAt: "2024-01-18",
+    desiredTimeframe: "3-4weeks",
     additionalNotes: "Rear collision. Trunk latch may need adjustment.",
     imageLabels: ["Front view", "Rear view", "Left side", "Right side", "Damage close-up", "Trunk interior", "Rear bumper", "Wheel well"],
     imageUrls: [
@@ -113,6 +122,7 @@ export const shopRequestsDetail: ShopRequestDetail[] = [
     vehicle: "2019 Mercedes C-Class",
     make: "Mercedes-Benz",
     model: "C-Class",
+    trim: "AMG Line",
     year: "2019",
     vin: "55SWF4KB8KU123456",
     damage: "Front bumper, hood and headlight damage",
@@ -120,6 +130,7 @@ export const shopRequestsDetail: ShopRequestDetail[] = [
     location: "Manhattan, NY",
     zipCode: "10019",
     createdAt: "2024-01-16",
+    desiredTimeframe: "1month+",
     additionalNotes: "Hood bent, both headlights. Requesting OEM parts.",
     imageLabels: ["Front view", "Rear view", "Left side", "Right side", "Hood damage", "Headlight", "Engine bay"],
     imageUrls: [

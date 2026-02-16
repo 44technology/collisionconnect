@@ -132,10 +132,6 @@ const HeroSection = () => {
                 </div>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center p-3 bg-secondary rounded-lg">
-                    <span className="text-sm text-muted-foreground">{t("heroCardInsurance")}</span>
-                    <span className="font-bold text-success">$15,000</span>
-                  </div>
-                  <div className="flex justify-between items-center p-3 bg-secondary rounded-lg">
                     <span className="text-sm text-muted-foreground">{t("heroCardBestOffer")}</span>
                     <span className="font-bold text-accent">$12,500</span>
                   </div>

@@ -1,16 +1,18 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Car, ArrowLeft, Clock, CheckCircle, FileText, DollarSign, Building2, LogOut } from "lucide-react";
+import { Car, ArrowLeft, Clock, CheckCircle, FileText, DollarSign, Building2, LogOut, MapPin, ImageIcon } from "lucide-react";
 import { useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useBids } from "@/lib/bidsStore";
 import { useLanguage } from "@/lib/LanguageContext";
 import { useNotifications } from "@/lib/notificationContext";
+import { getShopRequestById } from "@/lib/shopRequests";
 
 const demoRequests = [
-  { id: 1, vehicle: "2022 Toyota Camry", damage: "Front bumper and headlight damage", insuranceValue: 18000, status: "active", createdAt: "2024-01-15" },
-  { id: 2, vehicle: "2021 Honda Civic", damage: "Right door and fender damage", insuranceValue: 12000, status: "pending", createdAt: "2024-01-18" },
-  { id: 3, vehicle: "2020 Ford F-150", damage: "Rear bumper damage", insuranceValue: 8000, status: "completed", createdAt: "2024-01-10" },
+  { id: 1, vehicle: "2022 Toyota Camry", damage: "Front bumper and headlight damage", status: "active", createdAt: "2024-01-15" },
+  { id: 2, vehicle: "2021 Honda Civic", damage: "Right door and fender damage", status: "pending", createdAt: "2024-01-18" },
+  { id: 3, vehicle: "2020 BMW 3 Series", damage: "Rear bumper and trunk damage", status: "completed", createdAt: "2024-01-10" },
 ];
 
 const RequestDetail = () => {
@@ -19,8 +21,10 @@ const RequestDetail = () => {
   const { t } = useLanguage();
   const { getVisibleBids, getBidsVisibleToCustomer } = useBids();
   const { notifications, markAsRead } = useNotifications();
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const requestId = id ? parseInt(id, 10) : NaN;
   const request = demoRequests.find((r) => r.id === requestId);
+  const fullRequest = getShopRequestById(requestId);
   const bidsVisible = request ? getBidsVisibleToCustomer(request.id) : false;
   const bids = request && bidsVisible ? getVisibleBids(request.id) : [];
   const bestQuote = bids.length > 0 ? Math.min(...bids.map((b) => b.amount)) : null;
@@ -102,20 +106,30 @@ const RequestDetail = () => {
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between flex-wrap gap-2">
-                <CardTitle className="text-xl">{request.vehicle}</CardTitle>
+                <CardTitle className="text-xl">{fullRequest?.vehicle ?? request.vehicle}{fullRequest?.trim ? ` ${fullRequest.trim}` : ""}</CardTitle>
                 {getStatusBadge(request.status)}
               </div>
               <p className="text-sm text-muted-foreground mt-1">Submitted {request.createdAt}</p>
+              {fullRequest?.location && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                  <MapPin className="w-3 h-3" /> {fullRequest.location}
+                </p>
+              )}
+              {fullRequest?.desiredTimeframe && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                  <Clock className="w-3 h-3" /> {t("desiredTimeframeLabel")}: {t(
+                    { asap: "desiredTimeframeAsap", "1week": "desiredTimeframe1Week", "2weeks": "desiredTimeframe2Weeks", "3-4weeks": "desiredTimeframe3To4Weeks", "1month+": "desiredTimeframe1MonthPlus" }[fullRequest.desiredTimeframe] ?? "desiredTimeframeAsap"
+                  )}
+                </p>
+              )}
             </CardHeader>
             <CardContent className="space-y-3">
               <div>
-                <p className="text-xs font-medium text-muted-foreground mb-0.5">Damage description</p>
-                <p className="text-sm text-foreground">{request.damage}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <DollarSign className="w-4 h-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Insurance value:</span>
-                <span className="font-semibold">${request.insuranceValue.toLocaleString()}</span>
+                <p className="text-xs font-medium text-muted-foreground mb-0.5">{t("damageDetails")}</p>
+                <p className="text-sm text-foreground">{fullRequest?.damage ?? request.damage}</p>
+                {fullRequest?.additionalNotes && (
+                  <p className="text-xs text-muted-foreground mt-1">{fullRequest.additionalNotes}</p>
+                )}
               </div>
               {bidsVisible && bestQuote != null && (
                 <div className="flex items-center gap-2 text-success">
@@ -131,6 +145,48 @@ const RequestDetail = () => {
               )}
             </CardContent>
           </Card>
+
+          {fullRequest && fullRequest.imageUrls?.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <ImageIcon className="w-5 h-5" />
+                  {t("photos")} ({fullRequest.imageUrls.length})
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">{t("photosDescription")}</p>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {fullRequest.imageUrls.map((url, index) => (
+                    <div key={index} className="space-y-1">
+                      <button
+                        type="button"
+                        className="aspect-[3/2] w-full rounded-lg border border-border overflow-hidden bg-muted cursor-pointer hover:ring-2 hover:ring-accent/50 transition-all focus:outline-none focus:ring-2 focus:ring-accent"
+                        onClick={() => setLightboxImage(url)}
+                      >
+                        <img src={url} alt={fullRequest.imageLabels?.[index] ?? `Photo ${index + 1}`} className="w-full h-full object-cover" />
+                      </button>
+                      {fullRequest.imageLabels?.[index] && (
+                        <p className="text-xs text-muted-foreground truncate">{fullRequest.imageLabels[index]}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {lightboxImage && (
+            <div
+              className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+              onClick={() => setLightboxImage(null)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === "Escape" && setLightboxImage(null)}
+            >
+              <img src={lightboxImage} alt="Enlarged" className="max-w-full max-h-full object-contain" onClick={(e) => e.stopPropagation()} />
+            </div>
+          )}
 
           {bids.length > 0 && (
             <Card>

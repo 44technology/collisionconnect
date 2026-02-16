@@ -13,6 +13,8 @@ type ShopRequest = {
   id: number;
   vehicle: string;
   damage: string;
+  trim?: string;
+  desiredTimeframe?: string;
   insuranceValue: number;
   location: string;
   zipCode: string;
@@ -42,6 +44,8 @@ function buildDemoRequests(): ShopRequest[] {
     id: r.id,
     vehicle: r.vehicle,
     damage: r.damage,
+    trim: r.trim,
+    desiredTimeframe: r.desiredTimeframe,
     insuranceValue: r.insuranceValue,
     location: r.location,
     zipCode: r.zipCode,
@@ -317,7 +321,7 @@ const ShopDashboard = () => {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
-                        <h3 className="font-semibold text-sm">{request.vehicle}</h3>
+                        <h3 className="font-semibold text-sm">{request.vehicle}{request.trim ? ` ${request.trim}` : ""}</h3>
                         {request.myBid && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-success/10 text-success rounded-full text-xs font-medium">
                             <CheckCircle className="w-3 h-3" />
@@ -326,11 +330,14 @@ const ShopDashboard = () => {
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground mb-1 line-clamp-1">{request.damage}</p>
+                      {request.desiredTimeframe && (
+                        <p className="text-xs text-muted-foreground mb-1">
+                          {t("desiredTimeframeLabel")}: {t(
+                            { asap: "desiredTimeframeAsap", "1week": "desiredTimeframe1Week", "2weeks": "desiredTimeframe2Weeks", "3-4weeks": "desiredTimeframe3To4Weeks", "1month+": "desiredTimeframe1MonthPlus" }[request.desiredTimeframe] ?? "desiredTimeframeAsap"
+                          )}
+                        </p>
+                      )}
                       <div className="flex flex-wrap items-center gap-3 text-xs">
-                        <span className="flex items-center gap-1 text-muted-foreground">
-                          <DollarSign className="w-4 h-4" />
-                          {t("insurance")}: <span className="font-semibold text-foreground">${request.insuranceValue.toLocaleString()}</span>
-                        </span>
                         <span className="flex items-center gap-1 text-muted-foreground">
                           <MapPin className="w-4 h-4" />
                           {request.location}

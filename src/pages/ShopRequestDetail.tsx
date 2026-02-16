@@ -18,6 +18,7 @@ import {
   DollarSign,
   MapPin,
   Calendar,
+  Clock,
   FileText,
   LogOut,
   Send,
@@ -124,26 +125,32 @@ const ShopRequestDetail = () => {
             <CardHeader>
               <CardTitle className="text-xl flex items-center gap-2">
                 <Car className="w-6 h-6" />
-                {request.vehicle}
+                {request.vehicle}{request.trim ? ` ${request.trim}` : ""}
               </CardTitle>
               <p className="text-sm text-muted-foreground">Submitted {request.createdAt}</p>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                 <div>
-                  <p className="text-muted-foreground">Make</p>
+                  <p className="text-muted-foreground">{t("make")}</p>
                   <p className="font-medium">{request.make}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Model</p>
+                  <p className="text-muted-foreground">{t("model")}</p>
                   <p className="font-medium">{request.model}</p>
                 </div>
+                {request.trim && (
+                  <div>
+                    <p className="text-muted-foreground">{t("trim")}</p>
+                    <p className="font-medium">{request.trim}</p>
+                  </div>
+                )}
                 <div>
-                  <p className="text-muted-foreground">Year</p>
+                  <p className="text-muted-foreground">{t("year")}</p>
                   <p className="font-medium">{request.year}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">VIN</p>
+                  <p className="text-muted-foreground">{t("vin")}</p>
                   <p className="font-mono text-xs font-medium">{request.vin}</p>
                 </div>
               </div>
@@ -156,11 +163,14 @@ const ShopRequestDetail = () => {
                   <Calendar className="w-4 h-4" />
                   {request.createdAt}
                 </span>
-                <span className="flex items-center gap-2">
-                  <DollarSign className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Insurance value:</span>
-                  <span className="font-semibold">${request.insuranceValue.toLocaleString()}</span>
-                </span>
+                {request.desiredTimeframe && (
+                  <span className="flex items-center gap-2 text-muted-foreground">
+                    <Clock className="w-4 h-4" />
+                    {t("desiredTimeframeLabel")}: {t(
+                      { asap: "desiredTimeframeAsap", "1week": "desiredTimeframe1Week", "2weeks": "desiredTimeframe2Weeks", "3-4weeks": "desiredTimeframe3To4Weeks", "1month+": "desiredTimeframe1MonthPlus" }[request.desiredTimeframe] ?? "desiredTimeframeAsap"
+                    )}
+                  </span>
+                )}
               </div>
               {myBid != null && (
                 <div className="pt-1.5 border-t border-border">
@@ -301,12 +311,6 @@ const ShopRequestDetail = () => {
                   {t("firstBidsFree").replace("{count}", String(freeBidsRemaining))}
                 </p>
               )}
-              <div className="p-3 bg-secondary rounded-lg">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">{t("insuranceValueLabel")}:</span>
-                  <span className="font-bold">${request?.insuranceValue.toLocaleString()}</span>
-                </div>
-              </div>
               <div className="space-y-2">
                 <Label htmlFor="bidAmount">{t("yourBidAmount")}</Label>
                 <div className="relative">

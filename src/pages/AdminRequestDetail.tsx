@@ -15,6 +15,7 @@ import {
   DollarSign,
   MapPin,
   Calendar,
+  Clock,
   FileText,
   Trophy,
   Building2,
@@ -141,17 +142,21 @@ const AdminRequestDetail = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Car className="w-5 h-5" />
-              {request.vehicle}
+              {request.vehicle}{request.trim ? ` ${request.trim}` : ""}
             </CardTitle>
             <p className="text-sm text-muted-foreground">{request.damage}</p>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div className="flex items-center gap-2">
-                <DollarSign className="w-4 h-4 text-muted-foreground" />
-                <span className="text-muted-foreground">{t("insuranceValue")}:</span>
-                <span className="font-semibold">${request.insuranceValue.toLocaleString()}</span>
-              </div>
+              {request.desiredTimeframe && (
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">{t("desiredTimeframeLabel")}:</span>
+                  <span className="font-medium">{t(
+                    { asap: "desiredTimeframeAsap", "1week": "desiredTimeframe1Week", "2weeks": "desiredTimeframe2Weeks", "3-4weeks": "desiredTimeframe3To4Weeks", "1month+": "desiredTimeframe1MonthPlus" }[request.desiredTimeframe] ?? "desiredTimeframeAsap"
+                  )}</span>
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-muted-foreground" />
                 <span className="text-muted-foreground">{t("location")}:</span>
