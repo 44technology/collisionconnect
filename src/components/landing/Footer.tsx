@@ -19,27 +19,27 @@ const Footer = () => {
               </span>
             </div>
             <p className="text-primary-foreground/60 max-w-md mb-6">
-              America's leading damaged vehicle auction platform. Connecting body shops and vehicle owners.
+              {t("footerTagline")}
             </p>
           </div>
 
           {/* Quick Links */}
           <div>
-            <h4 className="font-display font-bold text-primary-foreground mb-4">Quick Links</h4>
+            <h4 className="font-display font-bold text-primary-foreground mb-4">{t("quickLinks")}</h4>
             <ul className="space-y-3">
               <li>
                 <a href="#" className="text-primary-foreground/60 hover:text-accent transition-colors">
-                  How It Works
+                  {t("howItWorksLink")}
                 </a>
               </li>
               <li>
                 <a href="#" className="text-primary-foreground/60 hover:text-accent transition-colors">
-                  For Body Shops
+                  {t("forBodyShops")}
                 </a>
               </li>
               <li>
                 <a href="#" className="text-primary-foreground/60 hover:text-accent transition-colors">
-                  FAQ
+                  {t("faq")}
                 </a>
               </li>
               <li>
@@ -49,7 +49,7 @@ const Footer = () => {
               </li>
               <li>
                 <a href="#" className="text-primary-foreground/60 hover:text-accent transition-colors">
-                  Contact
+                  {t("contact")}
                 </a>
               </li>
             </ul>
@@ -57,19 +57,19 @@ const Footer = () => {
 
           {/* Contact */}
           <div>
-            <h4 className="font-display font-bold text-primary-foreground mb-4">Contact</h4>
+            <h4 className="font-display font-bold text-primary-foreground mb-4">{t("contact")}</h4>
             <ul className="space-y-3">
               <li className="flex items-center gap-2 text-primary-foreground/60">
                 <Mail className="w-4 h-4" />
-                <span>info@collisioncollect.com</span>
+                <a href="mailto:info@44technology.com" className="hover:text-accent transition-colors">info@44technology.com</a>
               </li>
               <li className="flex items-center gap-2 text-primary-foreground/60">
                 <Phone className="w-4 h-4" />
-                <span>+1 (555) 123-4567</span>
+                <span>+1 (917) 727-5405</span>
               </li>
               <li className="flex items-center gap-2 text-primary-foreground/60">
                 <MapPin className="w-4 h-4" />
-                <span>New York, NY, USA</span>
+                <span>Miami, FL</span>
               </li>
             </ul>
           </div>
@@ -77,7 +77,10 @@ const Footer = () => {
 
         <div className="border-t border-primary-foreground/10 mt-12 pt-8 flex flex-col items-center gap-2 text-center">
           <p className="text-primary-foreground/40 text-sm">
-            © 2024 Collision Collect. All rights reserved.
+            {t("copyright")}
+          </p>
+          <p className="text-primary-foreground/40 text-sm font-medium">
+            44 Technology
           </p>
           <p className="text-primary-foreground/50 text-xs">
             {t("language")}:{" "}

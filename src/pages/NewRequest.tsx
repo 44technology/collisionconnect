@@ -4,8 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Car, ArrowLeft, Upload, X, Camera, DollarSign, Info, Mail } from "lucide-react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Car, ArrowLeft, Upload, X, Camera, Mail, Clock } from "lucide-react";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { toast } from "sonner";
 import { useLanguage } from "@/lib/LanguageContext";
 
@@ -18,11 +19,12 @@ const NewRequest = () => {
   const [formData, setFormData] = useState({
     make: "",
     model: "",
+    trim: "",
     year: "",
     vin: "",
     damageDescription: "",
-    insuranceValue: "",
     additionalNotes: "",
+    desiredTimeframe: "",
   });
   const [images, setImages] = useState<{ id: string; name: string; type: string }[]>([]);
   const [email, setEmail] = useState("");
@@ -49,6 +51,10 @@ const NewRequest = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.desiredTimeframe) {
+      toast.error(t("desiredTimeframeTitle"));
+      return;
+    }
     if (isGuestFlow) {
       const trimmed = email.trim();
       if (!trimmed) {
@@ -71,12 +77,20 @@ const NewRequest = () => {
   const title = isGuestFlow ? t("newRequestTitleGuest") : t("newRequestTitle");
 
   const imageTypes = [
-    { key: "front", label: "Front View", required: true },
-    { key: "rear", label: "Rear View", required: true },
-    { key: "left", label: "Left Side", required: true },
-    { key: "right", label: "Right Side", required: true },
-    { key: "engine", label: "Engine Bay", required: false },
-    { key: "damage", label: "Damage Detail", required: true },
+    { key: "front", labelKey: "frontView", required: true },
+    { key: "rear", labelKey: "rearView", required: true },
+    { key: "left", labelKey: "leftSide", required: true },
+    { key: "right", labelKey: "rightSide", required: true },
+    { key: "engine", labelKey: "engineBay", required: false },
+    { key: "damage", labelKey: "damageDetailLabel", required: true },
+  ];
+
+  const timeframeOptions = [
+    { value: "asap", labelKey: "desiredTimeframeAsap" },
+    { value: "1week", labelKey: "desiredTimeframe1Week" },
+    { value: "2weeks", labelKey: "desiredTimeframe2Weeks" },
+    { value: "3-4weeks", labelKey: "desiredTimeframe3To4Weeks" },
+    { value: "1month+", labelKey: "desiredTimeframe1MonthPlus" },
   ];
 
   return (
@@ -136,7 +150,7 @@ const NewRequest = () => {
                       <div className="w-10 h-10 bg-secondary rounded-lg flex items-center justify-center mx-auto mb-2">
                         <Upload className="w-5 h-5 text-muted-foreground" />
                       </div>
-                      <p className="text-sm font-medium">{type.label}</p>
+                      <p className="text-sm font-medium">{t(type.labelKey)}</p>
                       {type.required && (
                         <span className="text-xs text-destructive">*</span>
                       )}
@@ -175,16 +189,16 @@ const NewRequest = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Car className="w-5 h-5 text-accent" />
-                Vehicle Information
+                {t("vehicleInformation")}
               </CardTitle>
               <CardDescription>
-                Enter your vehicle's basic information
+                {t("vehicleInformationDesc")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="make">Make</Label>
+                  <Label htmlFor="make">{t("make")}</Label>
                   <Input
                     id="make"
                     placeholder="Toyota"
@@ -194,7 +208,7 @@ const NewRequest = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="model">Model</Label>
+                  <Label htmlFor="model">{t("model")}</Label>
                   <Input
                     id="model"
                     placeholder="Camry"
@@ -204,7 +218,16 @@ const NewRequest = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="year">Year</Label>
+                  <Label htmlFor="trim">{t("trim")}</Label>
+                  <Input
+                    id="trim"
+                    placeholder="LE / XSE"
+                    value={formData.trim}
+                    onChange={(e) => updateField("trim", e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="year">{t("year")}</Label>
                   <Input
                     id="year"
                     placeholder="2022"
@@ -216,7 +239,7 @@ const NewRequest = () => {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="vin">VIN Number (Optional)</Label>
+                <Label htmlFor="vin">{t("vinOptional")}</Label>
                 <Input
                   id="vin"
                   placeholder="1HGBH41JXMN109186"
@@ -227,58 +250,20 @@ const NewRequest = () => {
             </CardContent>
           </Card>
 
-          {/* Insurance Value */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-accent" />
-                Insurance Value
-              </CardTitle>
-              <CardDescription>
-                Enter the total loss value determined by your insurance company
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <Label htmlFor="insuranceValue">Insurance Amount ($)</Label>
-                <div className="relative">
-                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                  <Input
-                    id="insuranceValue"
-                    type="number"
-                    placeholder="15000"
-                    value={formData.insuranceValue}
-                    onChange={(e) => updateField("insuranceValue", e.target.value)}
-                    className="pl-10"
-                    required
-                  />
-                </div>
-              </div>
-              
-              <div className="mt-4 p-4 bg-accent/10 rounded-lg flex items-start gap-3">
-                <Info className="w-5 h-5 text-accent shrink-0 mt-0.5" />
-                <p className="text-sm text-muted-foreground">
-                  This amount will be used by body shops as a reference when submitting their bids. 
-                  Please enter the official valuation from your insurance company's report.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Damage Description */}
           <Card>
             <CardHeader>
-              <CardTitle>Damage Description</CardTitle>
+              <CardTitle>{t("damageDescriptionTitle")}</CardTitle>
               <CardDescription>
-                Describe the damage to your vehicle in detail
+                {t("damageDescriptionDesc")}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <Label htmlFor="damageDescription">Damage Details</Label>
+                <Label htmlFor="damageDescription">{t("damageDetails")}</Label>
                 <Textarea
                   id="damageDescription"
-                  placeholder="Front bumper is crushed, right headlight is broken, dents on the hood..."
+                  placeholder={t("damagePlaceholder")}
                   value={formData.damageDescription}
                   onChange={(e) => updateField("damageDescription", e.target.value)}
                   rows={4}
@@ -287,15 +272,45 @@ const NewRequest = () => {
               </div>
               
               <div className="space-y-2 mt-4">
-                <Label htmlFor="additionalNotes">Additional Notes (Optional)</Label>
+                <Label htmlFor="additionalNotes">{t("additionalNotesOptional")}</Label>
                 <Textarea
                   id="additionalNotes"
-                  placeholder="Any additional information or special requests..."
+                  placeholder={t("additionalNotesPlaceholder")}
                   value={formData.additionalNotes}
                   onChange={(e) => updateField("additionalNotes", e.target.value)}
                   rows={2}
                 />
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Desired time */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="w-5 h-5 text-accent" />
+                {t("desiredTimeframeTitle")}
+              </CardTitle>
+              <CardDescription>
+                {t("desiredTimeframeDesc")}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Select
+                value={formData.desiredTimeframe || undefined}
+                onValueChange={(value) => updateField("desiredTimeframe", value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={t("desiredTimeframePlaceholder")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {timeframeOptions.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {t(opt.labelKey)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </CardContent>
           </Card>
 
@@ -328,7 +343,7 @@ const NewRequest = () => {
                       <div className="w-10 h-10 bg-secondary rounded-lg flex items-center justify-center mx-auto mb-2">
                         <Upload className="w-5 h-5 text-muted-foreground" />
                       </div>
-                      <p className="text-sm font-medium">{type.label}</p>
+                      <p className="text-sm font-medium">{t(type.labelKey)}</p>
                       {type.required && (
                         <span className="text-xs text-destructive">*</span>
                       )}
@@ -374,16 +389,24 @@ const NewRequest = () => {
                 {t("yourEmailDescription")}
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <Label htmlFor="request-email">{t("email")}</Label>
-              <Input
-                id="request-email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="mt-2"
-              />
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="request-email">{t("email")}</Label>
+                <Input
+                  id="request-email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="mt-2"
+                />
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {t("alreadyHaveAccount") ?? "Already have an account?"}{" "}
+                <Link to="/login" className="text-accent font-medium hover:underline">
+                  {t("signIn")}
+                </Link>
+              </p>
             </CardContent>
           </Card>
           )}

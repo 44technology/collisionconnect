@@ -5,20 +5,39 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Shield, Mail, Lock, ArrowLeft } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { useAuth } from "@/lib/authContext";
 import { useLanguage } from "@/lib/LanguageContext";
+import { isFirebaseEnabled } from "@/lib/firebase";
 
 const LoginAdmin = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const { login } = useAuth();
+  const { login, loginWithEmailAndPassword } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    login("admin", "Admin");
-    navigate("/admin/dashboard");
+    if (isFirebaseEnabled()) {
+      setSubmitting(true);
+      try {
+        const state = await loginWithEmailAndPassword(email, password);
+        if (state?.userType === "admin") navigate("/admin/dashboard");
+        else {
+          toast.error(t("adminOnly") ?? "Admin access only. Sign in with an admin account.");
+        }
+      } catch (err: unknown) {
+        const msg = err && typeof err === "object" && "message" in err ? (err as { message?: string }).message : String(err);
+        toast.error(msg ?? t("loginFailed"));
+      } finally {
+        setSubmitting(false);
+      }
+    } else {
+      login("admin", "Admin");
+      navigate("/admin/dashboard");
+    }
   };
 
   return (
@@ -76,8 +95,8 @@ const LoginAdmin = () => {
                   />
                 </div>
               </div>
-              <Button type="submit" variant="hero" className="w-full" size="lg">
-                {t("signInAsAdmin")}
+              <Button type="submit" variant="hero" className="w-full" size="lg" disabled={submitting}>
+                {submitting ? (t("signingIn") ?? "Signing in...") : t("signInAsAdmin")}
               </Button>
             </form>
             <div className="mt-4 pt-4 border-t border-border text-center">

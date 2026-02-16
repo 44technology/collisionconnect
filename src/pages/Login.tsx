@@ -5,20 +5,42 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Car, Mail, Lock, ArrowLeft } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { useAuth } from "@/lib/authContext";
 import { useLanguage } from "@/lib/LanguageContext";
+import { isFirebaseEnabled } from "@/lib/firebase";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const { login } = useAuth();
+  const { login, loginWithEmailAndPassword } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    login("customer", "John Doe");
-    navigate("/dashboard");
+    if (isFirebaseEnabled()) {
+      setSubmitting(true);
+      try {
+        const state = await loginWithEmailAndPassword(email, password);
+        if (state?.userType === "shop") navigate("/shop/dashboard");
+        else if (state?.userType === "admin") navigate("/admin/dashboard");
+        else navigate("/dashboard");
+      } catch (err: unknown) {
+        const msg = err && typeof err === "object" && "code" in err
+          ? (err as { code: string }).code === "auth/invalid-credential" || (err as { code: string }).code === "auth/user-not-found"
+            ? t("invalidEmailOrPassword") ?? "Invalid email or password"
+            : (err as { message?: string }).message ?? String(err)
+          : String(err);
+        toast.error(msg);
+      } finally {
+        setSubmitting(false);
+      }
+    } else {
+      login("customer", "John Doe");
+      navigate("/dashboard");
+    }
   };
 
   return (
@@ -90,8 +112,8 @@ const Login = () => {
                 </a>
               </div>
 
-              <Button type="submit" variant="hero" className="w-full" size="lg">
-                {t("signIn")}
+              <Button type="submit" variant="hero" className="w-full" size="lg" disabled={submitting}>
+                {submitting ? (t("signingIn") ?? "Signing in...") : t("signIn")}
               </Button>
             </form>
 

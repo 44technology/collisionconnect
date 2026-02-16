@@ -1,52 +1,38 @@
 import { Camera, Upload, Clock, CheckCircle } from "lucide-react";
+import { useLanguage } from "@/lib/LanguageContext";
 
-const steps = [
-  {
-    icon: Camera,
-    title: "Take Photos",
-    description: "Capture photos of your vehicle's front, rear, left, right, and engine compartment.",
-  },
-  {
-    icon: Upload,
-    title: "Enter Details",
-    description: "Enter the insurance value and vehicle information, then create your request.",
-  },
-  {
-    icon: Clock,
-    title: "Receive Bids",
-    description: "Dozens of body shops will see your request and submit competitive offers.",
-  },
-  {
-    icon: CheckCircle,
-    title: "Choose the Best",
-    description: "Select the offer that works best for you and deliver your vehicle.",
-  },
+const stepKeys = [
+  { icon: Camera, titleKey: "step1Title", descKey: "step1Desc" },
+  { icon: Upload, titleKey: "step2Title", descKey: "step2Desc" },
+  { icon: Clock, titleKey: "step3Title", descKey: "step3Desc" },
+  { icon: CheckCircle, titleKey: "step4Title", descKey: "step4Desc" },
 ];
 
 const HowItWorks = () => {
+  const { t } = useLanguage();
   return (
     <section className="py-24 bg-background">
       <div className="container mx-auto px-4">
         <div className="text-center mb-16">
           <span className="inline-block text-accent font-semibold mb-4">
-            HOW IT WORKS
+            {t("howItWorksLabel")}
           </span>
           <h2 className="text-3xl md:text-4xl font-display font-bold text-foreground mb-4">
-            Get an Offer in 4 Easy Steps
+            {t("howItWorksTitle")}
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto">
-            Getting the best offer for your vehicle has never been easier.
+            {t("howItWorksSub")}
           </p>
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {steps.map((step, index) => (
+          {stepKeys.map((step, index) => (
             <div 
               key={index} 
               className="relative group"
             >
               {/* Connector line */}
-              {index < steps.length - 1 && (
+              {index < stepKeys.length - 1 && (
                 <div className="hidden lg:block absolute top-12 left-1/2 w-full h-0.5 bg-border" />
               )}
               
@@ -61,11 +47,11 @@ const HowItWorks = () => {
                 </div>
                 
                 <h3 className="text-xl font-display font-bold text-card-foreground mb-3">
-                  {step.title}
+                  {t(step.titleKey)}
                 </h3>
                 
                 <p className="text-muted-foreground">
-                  {step.description}
+                  {t(step.descKey)}
                 </p>
               </div>
             </div>

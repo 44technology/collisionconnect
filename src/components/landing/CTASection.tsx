@@ -1,9 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Building2, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useLanguage } from "@/lib/LanguageContext";
 
 const CTASection = () => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   return (
     <section className="py-24 gradient-hero">
@@ -16,12 +18,11 @@ const CTASection = () => {
             </div>
             
             <h3 className="text-2xl md:text-3xl font-display font-bold text-primary-foreground mb-4">
-              Are You a Vehicle Owner?
+              {t("ctaOwnerTitle")}
             </h3>
             
             <p className="text-primary-foreground/70 mb-8">
-              Get the best offers for your damaged vehicle. No signup — add photos, 
-              enter your details, then just your email. Free.
+              {t("ctaOwnerDesc")}
             </p>
             
             <Button 
@@ -30,7 +31,7 @@ const CTASection = () => {
               onClick={() => navigate("/request/new")}
               className="group"
             >
-              Get a quote — start with photos
+              {t("ctaOwnerButton")}
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </Button>
           </div>
@@ -42,12 +43,11 @@ const CTASection = () => {
             </div>
             
             <h3 className="text-2xl md:text-3xl font-display font-bold text-primary-foreground mb-4">
-              Are You a Body Shop?
+              {t("ctaShopTitle")}
             </h3>
             
             <p className="text-primary-foreground/70 mb-8">
-              Reach new customers and grow your business. Join our platform 
-              and view damaged vehicle requests.
+              {t("ctaShopDesc")}
             </p>
             
             <Button 
@@ -56,7 +56,7 @@ const CTASection = () => {
               onClick={() => navigate("/register/shop")}
               className="group border-accent text-accent hover:bg-accent hover:text-accent-foreground"
             >
-              Register as Body Shop
+              {t("ctaShopButton")}
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </Button>
           </div>

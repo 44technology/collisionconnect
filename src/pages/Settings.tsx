@@ -40,7 +40,7 @@ const Settings = () => {
                 onClick={() => setLocale("en")}
                 className={`h-12 font-medium border-2 ${locale === "en" ? "border-accent bg-accent/10 text-foreground" : "border-border text-foreground"}`}
               >
-                English
+                {t("english")}
               </Button>
               <Button
                 variant="outline"
@@ -48,10 +48,10 @@ const Settings = () => {
                 onClick={() => setLocale("es")}
                 className={`h-12 font-medium border-2 ${locale === "es" ? "border-accent bg-accent/10 text-foreground" : "border-border text-foreground"}`}
               >
-                Español
+                {t("spanish")}
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">{t("currentLanguage")}</p>
+            <p className="text-xs text-muted-foreground">{locale === "en" ? t("currentLanguageEn") : t("currentLanguageEs")}</p>
           </CardContent>
         </Card>
       </main>

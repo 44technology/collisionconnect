@@ -5,8 +5,13 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Building2, Mail, Lock, User, Phone, MapPin, ArrowLeft } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { useAuth } from "@/lib/authContext";
+import { isFirebaseEnabled } from "@/lib/firebase";
+import { useLanguage } from "@/lib/LanguageContext";
 
 const RegisterShop = () => {
+  const { t } = useLanguage();
   const [formData, setFormData] = useState({
     shopName: "",
     ownerName: "",
@@ -18,12 +23,45 @@ const RegisterShop = () => {
     password: "",
     confirmPassword: "",
   });
+  const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
+  const { registerShop, login } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Demo - redirect directly to shop dashboard
-    navigate("/shop/dashboard");
+    if (formData.password !== formData.confirmPassword) {
+      toast.error(t("passwordsDoNotMatch"));
+      return;
+    }
+    if (formData.password.length < 6) {
+      toast.error(t("passwordMinLength"));
+      return;
+    }
+    if (isFirebaseEnabled()) {
+      setSubmitting(true);
+      try {
+        await registerShop({
+          email: formData.email,
+          password: formData.password,
+          shopName: formData.shopName,
+          ownerName: formData.ownerName,
+          phone: formData.phone || undefined,
+          address: formData.address || undefined,
+          city: formData.city || undefined,
+          state: formData.state || undefined,
+        });
+        toast.success(t("businessAccountCreated"));
+        navigate("/shop/dashboard");
+      } catch (err: unknown) {
+        const msg = err && typeof err === "object" && "message" in err ? (err as { message?: string }).message : String(err);
+        toast.error(msg ?? t("registrationFailed"));
+      } finally {
+        setSubmitting(false);
+      }
+    } else {
+      login("shop", formData.shopName);
+      navigate("/shop/dashboard");
+    }
   };
 
   const updateField = (field: string, value: string) => {
@@ -39,7 +77,7 @@ const RegisterShop = () => {
           className="inline-flex items-center gap-2 text-primary-foreground/70 hover:text-primary-foreground mb-8 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Home
+          {t("backToHome")}
         </Link>
 
         <Card className="border border-border/80 shadow-xl">
@@ -49,9 +87,9 @@ const RegisterShop = () => {
                 <Building2 className="w-8 h-8 text-primary-foreground" />
               </div>
             </div>
-            <CardTitle className="text-2xl font-display">Body Shop Registration</CardTitle>
+            <CardTitle className="text-2xl font-display">{t("bodyShopRegistration")}</CardTitle>
             <CardDescription>
-              Add your business to the platform
+              {t("addYourBusiness")}
             </CardDescription>
           </CardHeader>
           
@@ -59,7 +97,7 @@ const RegisterShop = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="shopName">Business Name</Label>
+                  <Label htmlFor="shopName">{t("businessName")}</Label>
                   <div className="relative">
                     <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                     <Input
@@ -75,7 +113,7 @@ const RegisterShop = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="ownerName">Contact Name</Label>
+                  <Label htmlFor="ownerName">{t("contactName")}</Label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                     <Input
@@ -93,7 +131,7 @@ const RegisterShop = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">{t("email")}</Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                     <Input
@@ -109,7 +147,7 @@ const RegisterShop = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Phone</Label>
+                  <Label htmlFor="phone">{t("phone")}</Label>
                   <div className="relative">
                     <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                     <Input
@@ -126,7 +164,7 @@ const RegisterShop = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="address">Address</Label>
+                <Label htmlFor="address">{t("address")}</Label>
                 <div className="relative">
                   <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                   <Input
@@ -143,7 +181,7 @@ const RegisterShop = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="city">City</Label>
+                  <Label htmlFor="city">{t("city")}</Label>
                   <Input
                     id="city"
                     type="text"
@@ -155,7 +193,7 @@ const RegisterShop = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="state">State</Label>
+                  <Label htmlFor="state">{t("state")}</Label>
                   <Input
                     id="state"
                     type="text"
@@ -169,7 +207,7 @@ const RegisterShop = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
+                  <Label htmlFor="password">{t("password")}</Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                     <Input
@@ -185,7 +223,7 @@ const RegisterShop = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">Confirm Password</Label>
+                  <Label htmlFor="confirmPassword">{t("confirmPassword")}</Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                     <Input
@@ -204,20 +242,19 @@ const RegisterShop = () => {
               <div className="flex items-start gap-2">
                 <input type="checkbox" className="rounded border-border mt-1" required />
                 <span className="text-sm text-muted-foreground">
-                  I agree to the <a href="#" className="text-accent hover:underline">Terms of Service</a> and{" "}
-                  <a href="#" className="text-accent hover:underline">Business Agreement</a>.
+                  {t("termsAndBusiness")}
                 </span>
               </div>
 
-              <Button type="submit" className="w-full" size="lg">
-                Register
+              <Button type="submit" className="w-full" size="lg" disabled={submitting}>
+                {submitting ? t("creatingAccount") : t("register")}
               </Button>
             </form>
 
             <div className="mt-6 text-center text-sm">
-              <span className="text-muted-foreground">Already have an account? </span>
+              <span className="text-muted-foreground">{t("alreadyHaveAccount")} </span>
               <Link to="/login/shop" className="text-accent hover:underline font-medium">
-                Sign In
+                {t("signIn")}
               </Link>
             </div>
 
@@ -226,7 +263,7 @@ const RegisterShop = () => {
                 to="/register" 
                 className="text-sm text-muted-foreground hover:text-accent transition-colors"
               >
-                ← Click here to register as Customer
+                {t("registerAsCustomerLink")}
               </Link>
             </div>
           </CardContent>

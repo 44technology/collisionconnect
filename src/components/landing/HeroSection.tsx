@@ -1,9 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { Car, Shield, DollarSign, ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useLanguage } from "@/lib/LanguageContext";
 
 const HeroSection = () => {
   const navigate = useNavigate();
+  const { t, locale, setLocale } = useLanguage();
 
   return (
     <section className="relative min-h-screen gradient-hero overflow-hidden">
@@ -26,19 +28,36 @@ const HeroSection = () => {
           </div>
           
           <div className="flex items-center gap-4">
+            {/* Language switcher */}
+            <div className="flex items-center gap-1 rounded-lg bg-primary-foreground/10 p-1">
+              <button
+                type="button"
+                onClick={() => setLocale("en")}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${locale === "en" ? "bg-accent text-accent-foreground" : "text-primary-foreground/80 hover:text-primary-foreground"}`}
+              >
+                EN
+              </button>
+              <button
+                type="button"
+                onClick={() => setLocale("es")}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${locale === "es" ? "bg-accent text-accent-foreground" : "text-primary-foreground/80 hover:text-primary-foreground"}`}
+              >
+                ES
+              </button>
+            </div>
             <Button 
               variant="ghost" 
               className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10"
               onClick={() => navigate("/login/shop")}
             >
-              Body Shop Login
+              {t("bodyShopLoginNav")}
             </Button>
             <Button 
               variant="hero" 
               size="sm"
               onClick={() => navigate("/request/new")}
             >
-              Get a quote
+              {t("getAQuote")}
             </Button>
           </div>
         </nav>
@@ -48,18 +67,17 @@ const HeroSection = () => {
           <div className="animate-slide-up">
             <div className="inline-flex items-center gap-2 bg-accent/20 text-accent px-4 py-2 rounded-full text-sm font-medium mb-6">
               <Shield className="w-4 h-4" />
-              <span>#1 Damaged Vehicle Platform in the USA</span>
+              <span>{t("heroTagline")}</span>
             </div>
             
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-display font-bold text-primary-foreground leading-tight mb-6">
-              Get the
-              <span className="text-gradient block">Best Offer</span>
-              For Your Damaged Vehicle
+              {t("heroTitle1")}
+              <span className="text-gradient block">{t("heroTitle2")}</span>
+              {t("heroTitle3")}
             </h1>
             
             <p className="text-lg text-primary-foreground/70 mb-8 max-w-lg">
-              Upload photos of your vehicle, enter the insurance value, and receive 
-              competitive bids from dozens of body shops. Completely free!
+              {t("heroDescription")}
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4">
@@ -69,7 +87,7 @@ const HeroSection = () => {
                 onClick={() => navigate("/request/new")}
                 className="group"
               >
-                Get started — add photos
+                {t("getStartedPhotos")}
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Button>
               <Button 
@@ -77,7 +95,7 @@ const HeroSection = () => {
                 size="xl"
                 onClick={() => navigate("/login/shop")}
               >
-                Body Shop Login
+                {t("bodyShopLoginNav")}
               </Button>
             </div>
 
@@ -85,15 +103,15 @@ const HeroSection = () => {
             <div className="grid grid-cols-3 gap-8 mt-12 pt-12 border-t border-primary-foreground/10">
               <div>
                 <div className="text-3xl font-display font-bold text-accent">500+</div>
-                <div className="text-sm text-primary-foreground/60">Registered Body Shops</div>
+                <div className="text-sm text-primary-foreground/60">{t("statsShops")}</div>
               </div>
               <div>
                 <div className="text-3xl font-display font-bold text-accent">10K+</div>
-                <div className="text-sm text-primary-foreground/60">Completed Repairs</div>
+                <div className="text-sm text-primary-foreground/60">{t("statsRepairs")}</div>
               </div>
               <div>
                 <div className="text-3xl font-display font-bold text-accent">$2M+</div>
-                <div className="text-sm text-primary-foreground/60">Total Savings</div>
+                <div className="text-sm text-primary-foreground/60">{t("statsSavings")}</div>
               </div>
             </div>
           </div>
@@ -108,22 +126,22 @@ const HeroSection = () => {
                     <Car className="w-6 h-6 text-accent" />
                   </div>
                   <div>
-                    <div className="font-semibold text-card-foreground">2022 Toyota Camry</div>
-                    <div className="text-sm text-muted-foreground">Front bumper damage</div>
+                    <div className="font-semibold text-card-foreground">{t("heroCardVehicle")}</div>
+                    <div className="text-sm text-muted-foreground">{t("heroCardDamage")}</div>
                   </div>
                 </div>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center p-3 bg-secondary rounded-lg">
-                    <span className="text-sm text-muted-foreground">Insurance Value</span>
+                    <span className="text-sm text-muted-foreground">{t("heroCardInsurance")}</span>
                     <span className="font-bold text-success">$15,000</span>
                   </div>
                   <div className="flex justify-between items-center p-3 bg-secondary rounded-lg">
-                    <span className="text-sm text-muted-foreground">Best Offer</span>
+                    <span className="text-sm text-muted-foreground">{t("heroCardBestOffer")}</span>
                     <span className="font-bold text-accent">$12,500</span>
                   </div>
                   <div className="flex justify-between items-center p-3 bg-secondary rounded-lg">
-                    <span className="text-sm text-muted-foreground">Number of Bids</span>
-                    <span className="font-bold">8 Bids</span>
+                    <span className="text-sm text-muted-foreground">{t("heroCardBids")}</span>
+                    <span className="font-bold">8 {t("bids")}</span>
                   </div>
                 </div>
               </div>
@@ -131,7 +149,7 @@ const HeroSection = () => {
               {/* Floating badge */}
               <div className="absolute -top-4 -right-4 bg-success text-success-foreground px-4 py-2 rounded-full text-sm font-bold shadow-lg">
                 <DollarSign className="w-4 h-4 inline mr-1" />
-                17% Savings!
+                17% {t("heroCardSavings")}
               </div>
             </div>
           </div>
