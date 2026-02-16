@@ -158,6 +158,9 @@ const ShopRequestDetail = () => {
                 <span className="flex items-center gap-2 text-muted-foreground">
                   <MapPin className="w-4 h-4" />
                   {request.location}
+                  {request.zipCode && (
+                    <span className="font-medium text-foreground"> · {t("zip")} {request.zipCode}</span>
+                  )}
                 </span>
                 <span className="flex items-center gap-2 text-muted-foreground">
                   <Calendar className="w-4 h-4" />

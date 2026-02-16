@@ -110,9 +110,13 @@ const RequestDetail = () => {
                 {getStatusBadge(request.status)}
               </div>
               <p className="text-sm text-muted-foreground mt-1">Submitted {request.createdAt}</p>
-              {fullRequest?.location && (
+              {(fullRequest?.location || fullRequest?.zipCode) && (
                 <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                  <MapPin className="w-3 h-3" /> {fullRequest.location}
+                  <MapPin className="w-3 h-3" />
+                  {fullRequest.location}
+                  {fullRequest.zipCode && (
+                    <span className="ml-1">· {t("zip")} {fullRequest.zipCode}</span>
+                  )}
                 </p>
               )}
               {fullRequest?.desiredTimeframe && (

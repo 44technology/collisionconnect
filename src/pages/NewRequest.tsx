@@ -22,6 +22,7 @@ const NewRequest = () => {
     trim: "",
     year: "",
     vin: "",
+    zipCode: "",
     damageDescription: "",
     additionalNotes: "",
     desiredTimeframe: "",
@@ -53,6 +54,11 @@ const NewRequest = () => {
     e.preventDefault();
     if (!formData.desiredTimeframe) {
       toast.error(t("desiredTimeframeTitle"));
+      return;
+    }
+    const zipTrimmed = formData.zipCode.trim().replace(/\D/g, "").slice(0, 5);
+    if (zipTrimmed.length < 5) {
+      toast.error(t("requestZipCode") + " — " + (t("requestZipCodePlaceholder") ?? "5 digits"));
       return;
     }
     if (isGuestFlow) {
@@ -246,6 +252,18 @@ const NewRequest = () => {
                   value={formData.vin}
                   onChange={(e) => updateField("vin", e.target.value)}
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="zipCode">{t("requestZipCode")}</Label>
+                <Input
+                  id="zipCode"
+                  placeholder={t("requestZipCodePlaceholder")}
+                  value={formData.zipCode}
+                  onChange={(e) => updateField("zipCode", e.target.value)}
+                  maxLength={10}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">{t("requestZipCodeHint")}</p>
               </div>
             </CardContent>
           </Card>

@@ -160,7 +160,7 @@ const AdminRequestDetail = () => {
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-muted-foreground" />
                 <span className="text-muted-foreground">{t("location")}:</span>
-                <span className="font-medium">{request.location}</span>
+                <span className="font-medium">{request.location}{request.zipCode ? ` · ${t("zip")} ${request.zipCode}` : ""}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-muted-foreground" />
