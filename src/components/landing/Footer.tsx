@@ -34,11 +34,6 @@ const Footer = () => {
               </li>
               <li>
                 <a href="#" className="text-primary-foreground/60 hover:text-accent transition-colors">
-                  {t("forBodyShops")}
-                </a>
-              </li>
-              <li>
-                <a href="#" className="text-primary-foreground/60 hover:text-accent transition-colors">
                   {t("faq")}
                 </a>
               </li>

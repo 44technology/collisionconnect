@@ -9,6 +9,8 @@ import { Car, ArrowLeft, Upload, X, Camera, Mail, Clock } from "lucide-react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { toast } from "sonner";
 import { useLanguage } from "@/lib/LanguageContext";
+import { addSubmittedRequest, getSubmittedRequestByRefId } from "@/lib/submittedRequestsStore";
+import { saveRequestToFirestore } from "@/lib/requestsFirestore";
 
 const NewRequest = () => {
   const navigate = useNavigate();
@@ -27,27 +29,36 @@ const NewRequest = () => {
     additionalNotes: "",
     desiredTimeframe: "",
   });
-  const [images, setImages] = useState<{ id: string; name: string; type: string }[]>([]);
+  type SlotImage = { id: string; file: File; previewUrl: string };
+  const [imagesBySlot, setImagesBySlot] = useState<Record<string, SlotImage>>({});
   const [email, setEmail] = useState("");
 
   const updateField = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files) {
-      const newImages = Array.from(files).map((file, index) => ({
-        id: `${Date.now()}-${index}`,
-        name: file.name,
-        type: file.type,
-      }));
-      setImages((prev) => [...prev, ...newImages]);
-    }
+  const handleSlotImage = (slotKey: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !file.type.startsWith("image/")) return;
+    setImagesBySlot((prev) => {
+      const old = prev[slotKey];
+      if (old) URL.revokeObjectURL(old.previewUrl);
+      return {
+        ...prev,
+        [slotKey]: { id: `${Date.now()}-${slotKey}`, file, previewUrl: URL.createObjectURL(file) },
+      };
+    });
+    e.target.value = "";
   };
 
-  const removeImage = (id: string) => {
-    setImages((prev) => prev.filter((img) => img.id !== id));
+  const removeSlotImage = (slotKey: string) => {
+    setImagesBySlot((prev) => {
+      const old = prev[slotKey];
+      if (old) URL.revokeObjectURL(old.previewUrl);
+      const next = { ...prev };
+      delete next[slotKey];
+      return next;
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -61,6 +72,25 @@ const NewRequest = () => {
       toast.error(t("requestZipCode") + " — " + (t("requestZipCodePlaceholder") ?? "5 digits"));
       return;
     }
+    const vehicle = [formData.make, formData.model, formData.trim, formData.year].filter(Boolean).join(" ");
+    const refId = addSubmittedRequest({
+      vehicle: vehicle || "—",
+      make: formData.make,
+      model: formData.model,
+      trim: formData.trim,
+      year: formData.year,
+      damage: formData.damageDescription || "—",
+      zipCode: zipTrimmed,
+      desiredTimeframe: formData.desiredTimeframe,
+      additionalNotes: formData.additionalNotes || "",
+      imageUrls: [],
+      imageLabels: [],
+    });
+    const fullRequest = getSubmittedRequestByRefId(refId);
+    if (fullRequest) {
+      saveRequestToFirestore(fullRequest).catch(() => {});
+    }
+
     if (isGuestFlow) {
       const trimmed = email.trim();
       if (!trimmed) {
@@ -72,11 +102,11 @@ const NewRequest = () => {
         return;
       }
       toast.success(t("requestSubmittedSuccess"));
-      navigate(`/request/submitted?email=${encodeURIComponent(trimmed)}`);
+      navigate(`/request/submitted?ref=${encodeURIComponent(refId)}&email=${encodeURIComponent(trimmed)}`);
       return;
     }
     toast.success(t("requestSubmittedSuccess"));
-    navigate("/dashboard");
+    navigate(`/request/submitted?ref=${encodeURIComponent(refId)}`);
   };
 
   const backHref = isGuestFlow ? "/" : "/dashboard";
@@ -140,52 +170,45 @@ const NewRequest = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-                {imageTypes.map((type) => (
-                  <div 
-                    key={type.key}
-                    className="border-2 border-dashed border-border rounded-xl p-4 text-center hover:border-accent/50 transition-colors cursor-pointer"
-                  >
-                    <label className="cursor-pointer">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleImageUpload}
-                      />
-                      <div className="w-10 h-10 bg-secondary rounded-lg flex items-center justify-center mx-auto mb-2">
-                        <Upload className="w-5 h-5 text-muted-foreground" />
-                      </div>
-                      <p className="text-sm font-medium">{t(type.labelKey)}</p>
-                      {type.required && (
-                        <span className="text-xs text-destructive">*</span>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {imageTypes.map((type) => {
+                  const slot = imagesBySlot[type.key];
+                  return (
+                    <div key={type.key} className="space-y-1">
+                      {slot ? (
+                        <div className="relative aspect-square w-full rounded-lg border border-border overflow-hidden bg-muted group">
+                          <img src={slot.previewUrl} alt={t(type.labelKey)} className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => removeSlotImage(type.key)}
+                            className="absolute top-1 right-1 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="block border-2 border-dashed border-border rounded-lg aspect-square w-full overflow-hidden hover:border-accent/50 transition-colors cursor-pointer">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => handleSlotImage(type.key, e)}
+                          />
+                          <div className="w-full h-full flex flex-col items-center justify-center p-2">
+                            <div className="w-10 h-10 bg-secondary rounded-lg flex items-center justify-center">
+                              <Upload className="w-5 h-5 text-muted-foreground" />
+                            </div>
+                          </div>
+                        </label>
                       )}
-                    </label>
-                  </div>
-                ))}
+                      <p className="text-xs font-medium text-muted-foreground text-center mt-1">
+                        {t(type.labelKey)}
+                        {type.required && <span className="text-destructive"> *</span>}
+                      </p>
+                    </div>
+                  );
+                })}
               </div>
-              {images.length > 0 && (
-                <div className="mt-4">
-                  <p className="text-sm font-medium mb-2">{t("uploadedPhotos")}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {images.map((img) => (
-                      <div 
-                        key={img.id}
-                        className="flex items-center gap-2 bg-secondary px-3 py-2 rounded-lg text-sm"
-                      >
-                        <span className="truncate max-w-[150px]">{img.name}</span>
-                        <button
-                          type="button"
-                          onClick={() => removeImage(img.id)}
-                          className="text-muted-foreground hover:text-destructive"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </CardContent>
           </Card>
           )}
@@ -345,52 +368,45 @@ const NewRequest = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-                {imageTypes.map((type) => (
-                  <div 
-                    key={type.key}
-                    className="border-2 border-dashed border-border rounded-xl p-4 text-center hover:border-accent/50 transition-colors cursor-pointer"
-                  >
-                    <label className="cursor-pointer">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleImageUpload}
-                      />
-                      <div className="w-10 h-10 bg-secondary rounded-lg flex items-center justify-center mx-auto mb-2">
-                        <Upload className="w-5 h-5 text-muted-foreground" />
-                      </div>
-                      <p className="text-sm font-medium">{t(type.labelKey)}</p>
-                      {type.required && (
-                        <span className="text-xs text-destructive">*</span>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {imageTypes.map((type) => {
+                  const slot = imagesBySlot[type.key];
+                  return (
+                    <div key={type.key} className="space-y-1">
+                      {slot ? (
+                        <div className="relative aspect-square w-full rounded-lg border border-border overflow-hidden bg-muted group">
+                          <img src={slot.previewUrl} alt={t(type.labelKey)} className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => removeSlotImage(type.key)}
+                            className="absolute top-1 right-1 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="block border-2 border-dashed border-border rounded-lg aspect-square w-full overflow-hidden hover:border-accent/50 transition-colors cursor-pointer">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => handleSlotImage(type.key, e)}
+                          />
+                          <div className="w-full h-full flex flex-col items-center justify-center p-2">
+                            <div className="w-10 h-10 bg-secondary rounded-lg flex items-center justify-center">
+                              <Upload className="w-5 h-5 text-muted-foreground" />
+                            </div>
+                          </div>
+                        </label>
                       )}
-                    </label>
-                  </div>
-                ))}
+                      <p className="text-xs font-medium text-muted-foreground text-center mt-1">
+                        {t(type.labelKey)}
+                        {type.required && <span className="text-destructive"> *</span>}
+                      </p>
+                    </div>
+                  );
+                })}
               </div>
-              {images.length > 0 && (
-                <div className="mt-4">
-                  <p className="text-sm font-medium mb-2">{t("uploadedPhotos")}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {images.map((img) => (
-                      <div 
-                        key={img.id}
-                        className="flex items-center gap-2 bg-secondary px-3 py-2 rounded-lg text-sm"
-                      >
-                        <span className="truncate max-w-[150px]">{img.name}</span>
-                        <button
-                          type="button"
-                          onClick={() => removeImage(img.id)}
-                          className="text-muted-foreground hover:text-destructive"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </CardContent>
           </Card>
           )}

@@ -20,6 +20,8 @@ import {
   Trophy,
   Building2,
   ImageIcon,
+  MessageCircle,
+  Send,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/lib/authContext";
@@ -27,6 +29,7 @@ import { useBids, shopAmountToCustomerPrice } from "@/lib/bidsStore";
 import { useLanguage } from "@/lib/LanguageContext";
 import { useNotifications } from "@/lib/notificationContext";
 import { getShopRequestById } from "@/lib/shopRequests";
+import { getAllBodyShops, normalizeWhatsAppPhone } from "@/lib/bodyShopsStore";
 import { toast } from "sonner";
 
 const AdminRequestDetail = () => {
@@ -181,6 +184,63 @@ const AdminRequestDetail = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Send quote link to body shops via WhatsApp */}
+        {(() => {
+          const refId = (request as { refId?: string }).refId;
+          const quoteLink = `${typeof window !== "undefined" ? window.location.origin : ""}/quote/${refId ?? request.id}`;
+          const bodyShops = getAllBodyShops().filter((s) => normalizeWhatsAppPhone(s.whatsappPhone));
+          const defaultMessage = (t("adminQuoteLinkMessage") ?? "New quote request – please submit your price and turnaround time:\n").replace(/\n/g, "\n") + quoteLink;
+          const openWhatsApp = (phone: string) => {
+            const num = normalizeWhatsAppPhone(phone);
+            if (!num) return;
+            window.open(`https://wa.me/${num}?text=${encodeURIComponent(defaultMessage)}`, "_blank", "noopener,noreferrer");
+          };
+          const openAllTabs = () => {
+            bodyShops.forEach((s) => openWhatsApp(s.whatsappPhone));
+            if (bodyShops.length > 0) toast.success(t("adminQuoteLinkOpenedAll") ?? "Opened WhatsApp for each body shop. Send the message in each tab.");
+          };
+          return (
+            <Card className="border-accent/30">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <MessageCircle className="w-5 h-5 text-[#25D366]" />
+                  {t("adminSendQuoteLinkToShops")}
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  {t("adminSendQuoteLinkHint")}
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-xs font-mono text-muted-foreground break-all">{quoteLink}</p>
+                {bodyShops.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">{t("adminNoBodyShopsForWhatsApp")}</p>
+                ) : (
+                  <>
+                    <div className="flex flex-wrap gap-2">
+                      {bodyShops.map((shop) => (
+                        <Button
+                          key={shop.id}
+                          size="sm"
+                          variant="outline"
+                          className="border-[#25D366]/50 text-[#25D366] hover:bg-[#25D366]/10"
+                          onClick={() => openWhatsApp(shop.whatsappPhone)}
+                        >
+                          <MessageCircle className="w-4 h-4 mr-1.5" />
+                          {shop.name}
+                        </Button>
+                      ))}
+                    </div>
+                    <Button size="sm" variant="secondary" onClick={openAllTabs}>
+                      <Send className="w-4 h-4 mr-2" />
+                      {t("adminOpenAllWhatsApp")}
+                    </Button>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         {/* Fotoğraflar */}
         <Card>

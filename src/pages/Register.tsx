@@ -186,14 +186,6 @@ const Register = () => {
               </Link>
             </div>
 
-            <div className="mt-4 pt-4 border-t border-border text-center">
-              <Link 
-                to="/register/shop" 
-                className="text-sm text-muted-foreground hover:text-accent transition-colors"
-              >
-                {t("registerAsBodyShopLink")} →
-              </Link>
-            </div>
           </CardContent>
         </Card>
       </div>

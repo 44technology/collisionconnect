@@ -103,10 +103,6 @@ const LoginAdmin = () => {
               <Link to="/login" className="text-sm text-muted-foreground hover:text-accent transition-colors">
                 {t("customerLogin")} →
               </Link>
-              <span className="mx-2 text-muted-foreground">|</span>
-              <Link to="/login/shop" className="text-sm text-muted-foreground hover:text-accent transition-colors">
-                {t("bodyShopLogin")} →
-              </Link>
             </div>
           </CardContent>
         </Card>

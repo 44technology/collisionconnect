@@ -124,10 +124,7 @@ const Login = () => {
               </Link>
             </div>
 
-            <div className="mt-4 pt-4 border-t border-border text-center space-y-1">
-              <Link to="/login/shop" className="block text-sm text-muted-foreground hover:text-accent transition-colors">
-                {t("signInAsBodyShop")} →
-              </Link>
+            <div className="mt-4 pt-4 border-t border-border text-center">
               <Link to="/login/admin" className="block text-sm text-muted-foreground hover:text-accent transition-colors">
                 {t("adminLogin")} →
               </Link>

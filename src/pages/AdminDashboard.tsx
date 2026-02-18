@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Shield, Car, LogOut, Eye, DollarSign, Trophy, Settings, Building2, Users, TrendingUp, Wallet } from "lucide-react";
+import { Shield, Car, LogOut, Eye, DollarSign, Trophy, Settings, Building2, Users, TrendingUp, Wallet, Wrench } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/authContext";
 import { useBids } from "@/lib/bidsStore";
@@ -73,6 +73,25 @@ const AdminDashboard = () => {
       <main className="container mx-auto px-4 py-6">
         <h1 className="text-lg font-display font-bold mb-2">{t("adminDashboard")}</h1>
         <p className="text-sm text-muted-foreground mb-6">{t("adminHint")}</p>
+
+        {/* Our body shops */}
+        <Card
+          className="mb-8 border-border hover:border-accent/40 cursor-pointer transition-colors"
+          onClick={() => navigate("/admin/dashboard/body-shops")}
+        >
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-accent/20 flex items-center justify-center shrink-0">
+              <Wrench className="w-6 h-6 text-accent" />
+            </div>
+            <div className="flex-1">
+              <h2 className="font-semibold text-foreground">{t("adminOurBodyShops")}</h2>
+              <p className="text-sm text-muted-foreground">{t("adminOurBodyShopsHint")}</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); navigate("/admin/dashboard/body-shops"); }}>
+              {t("details")}
+            </Button>
+          </CardContent>
+        </Card>
 
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">

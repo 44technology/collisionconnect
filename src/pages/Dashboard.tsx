@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -11,34 +11,55 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Car, Plus, Clock, CheckCircle, DollarSign, LogOut, FileText, Eye, Bell, Settings } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useBids } from "@/lib/bidsStore";
 import { useLanguage } from "@/lib/LanguageContext";
 import { useNotifications } from "@/lib/notificationContext";
+import { getAllSubmittedRequests } from "@/lib/submittedRequestsStore";
+import { getQuotesByRequestRefId } from "@/lib/quotesStore";
 
 type RequestStatus = "active" | "pending" | "completed";
 type ListFilter = "all" | "active" | "completed" | "savings";
 
-const demoRequests: { id: number; vehicle: string; damage: string; trim?: string; desiredTimeframe?: string; insuranceValue: number; status: RequestStatus; createdAt: string }[] = [
-  { id: 1, vehicle: "2022 Toyota Camry", damage: "Front bumper and headlight damage", trim: "LE", desiredTimeframe: "2weeks", insuranceValue: 18000, status: "active", createdAt: "2024-01-15" },
-  { id: 2, vehicle: "2021 Honda Civic", damage: "Right door and fender damage", trim: "Sport", desiredTimeframe: "asap", insuranceValue: 12000, status: "pending", createdAt: "2024-01-18" },
-  { id: 3, vehicle: "2020 BMW 3 Series", damage: "Rear bumper and trunk damage", trim: "330i", desiredTimeframe: "3-4weeks", insuranceValue: 8000, status: "completed", createdAt: "2024-01-10" },
+type ListRequest = {
+  requestRefId: string;
+  vehicle: string;
+  damage: string;
+  trim?: string;
+  desiredTimeframe?: string;
+  status: RequestStatus;
+  createdAt: string;
+};
+
+const demoRequests: ListRequest[] = [
+  { requestRefId: "1", vehicle: "2022 Toyota Camry", damage: "Front bumper and headlight damage", trim: "LE", desiredTimeframe: "2weeks", status: "active", createdAt: "2024-01-15" },
+  { requestRefId: "2", vehicle: "2021 Honda Civic", damage: "Right door and fender damage", trim: "Sport", desiredTimeframe: "asap", status: "pending", createdAt: "2024-01-18" },
+  { requestRefId: "3", vehicle: "2020 BMW 3 Series", damage: "Rear bumper and trunk damage", trim: "330i", desiredTimeframe: "3-4weeks", status: "completed", createdAt: "2024-01-10" },
 ];
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const { getVisibleBids, getBidsVisibleToCustomer } = useBids();
   const { notifications, getUnreadCount, markAsRead, markAllAsRead } = useNotifications();
-  const [requests] = useState(demoRequests);
   const [listFilter, setListFilter] = useState<ListFilter>("all");
   const unreadCount = getUnreadCount();
 
-  const getBidStats = (requestId: number) => {
-    const visible = getBidsVisibleToCustomer(requestId);
-    if (!visible) return { bidsCount: 0, bestBid: null as number | null };
-    const bids = getVisibleBids(requestId);
-    const count = bids.length;
-    const bestBid = count > 0 ? Math.min(...bids.map((b) => b.amount)) : null;
+  const submittedList: ListRequest[] = useMemo(() => {
+    return getAllSubmittedRequests().map((s) => ({
+      requestRefId: s.refId,
+      vehicle: s.vehicle,
+      damage: s.damage,
+      trim: s.trim,
+      desiredTimeframe: s.desiredTimeframe,
+      status: "active" as RequestStatus,
+      createdAt: s.createdAt,
+    }));
+  }, []);
+
+  const requests = useMemo(() => [...submittedList, ...demoRequests], [submittedList]);
+
+  const getQuoteStats = (requestRefId: string) => {
+    const quotes = getQuotesByRequestRefId(requestRefId);
+    const count = quotes.length;
+    const bestBid = count > 0 ? Math.min(...quotes.map((q) => q.price)) : null;
     return { bidsCount: count, bestBid };
   };
 
@@ -46,13 +67,13 @@ const Dashboard = () => {
     total: requests.length,
     active: requests.filter((r) => r.status === "active").length,
     completed: requests.filter((r) => r.status === "completed").length,
-    withSavings: requests.filter((r) => getBidStats(r.id).bestBid != null).length,
+    withSavings: requests.filter((r) => getQuoteStats(r.requestRefId).bestBid != null).length,
   };
 
   const filteredRequests = (() => {
     if (listFilter === "active") return requests.filter((r) => r.status === "active");
     if (listFilter === "completed") return requests.filter((r) => r.status === "completed");
-    if (listFilter === "savings") return requests.filter((r) => getBidStats(r.id).bestBid != null);
+    if (listFilter === "savings") return requests.filter((r) => getQuoteStats(r.requestRefId).bestBid != null);
     return requests;
   })();
 
@@ -247,7 +268,7 @@ const Dashboard = () => {
         {/* Requests List */}
         <div className="space-y-3">
           {filteredRequests.map((request) => (
-            <Card key={request.id} className="hover:border-accent/20">
+            <Card key={request.requestRefId} className="hover:border-accent/20">
               <CardContent className="p-4">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                   <div className="flex items-start gap-3">
@@ -269,7 +290,7 @@ const Dashboard = () => {
                       )}
                       <div className="flex items-center gap-3 text-xs">
                         {(() => {
-                          const { bidsCount, bestBid } = getBidStats(request.id);
+                          const { bidsCount, bestBid } = getQuoteStats(request.requestRefId);
                           return (
                             <>
                               {bidsCount > 0 && (
@@ -294,17 +315,17 @@ const Dashboard = () => {
                       variant="outline"
                       size="sm"
                       className="border-white/50 bg-white/15 text-white hover:bg-white/25 hover:text-white hover:border-white/70"
-                      onClick={() => navigate(`/dashboard/request/${request.id}`)}
+                      onClick={() => navigate(`/dashboard/request/${request.requestRefId}`)}
                     >
                       <Eye className="w-4 h-4 mr-2" />
                       {t("details")}
                     </Button>
-                    {request.status === "active" && getBidStats(request.id).bidsCount > 0 && (
+                    {request.status === "active" && getQuoteStats(request.requestRefId).bidsCount > 0 && (
                       <Button
                         variant="hero"
                         size="sm"
                         className="bg-accent text-accent-foreground hover:bg-accent/90"
-                        onClick={() => navigate(`/dashboard/request/${request.id}`)}
+                        onClick={() => navigate(`/dashboard/request/${request.requestRefId}`)}
                       >
                         {t("viewBids")}
                       </Button>

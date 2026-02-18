@@ -46,13 +46,6 @@ const HeroSection = () => {
               </button>
             </div>
             <Button 
-              variant="ghost" 
-              className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10"
-              onClick={() => navigate("/login/shop")}
-            >
-              {t("bodyShopLoginNav")}
-            </Button>
-            <Button 
               variant="hero" 
               size="sm"
               onClick={() => navigate("/request/new")}
@@ -90,14 +83,7 @@ const HeroSection = () => {
                 {t("getStartedPhotos")}
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Button>
-              <Button 
-                variant="heroOutline" 
-                size="xl"
-                onClick={() => navigate("/login/shop")}
-              >
-                {t("bodyShopLoginNav")}
-              </Button>
-            </div>
+              </div>
 
             {/* Stats */}
             <div className="grid grid-cols-3 gap-8 mt-12 pt-12 border-t border-primary-foreground/10">
