@@ -160,7 +160,7 @@ const QuotePage = () => {
       estimatedCompletion += ` (${form.estimatedHours.trim()})`;
     }
     addQuote(requestRefId, {
-      shopName: form.shopName.trim() || t("quoteFormShopNamePlaceholder") ?? "Body Shop",
+      shopName: form.shopName.trim() || (t("quoteFormShopNamePlaceholder") ?? "Body Shop"),
       address: "",
       email: "",
       phone: "",
