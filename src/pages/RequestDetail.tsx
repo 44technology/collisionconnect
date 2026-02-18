@@ -15,6 +15,7 @@ import { useLanguage } from "@/lib/LanguageContext";
 import { getShopRequestById } from "@/lib/shopRequests";
 import { getSubmittedRequestByRefId } from "@/lib/submittedRequestsStore";
 import { getQuotesByRequestRefId } from "@/lib/quotesStore";
+import { getVisibleQuoteIds } from "@/lib/visibleQuotesStore";
 import { isUnlocked, setUnlocked } from "@/lib/unlockStore";
 import { toast } from "sonner";
 
@@ -75,7 +76,9 @@ const RequestDetail = () => {
         }
       : null;
 
-  const quotes = requestRefId ? getQuotesByRequestRefId(requestRefId) : [];
+  const allQuotes = requestRefId ? getQuotesByRequestRefId(requestRefId) : [];
+  const visibleIds = requestRefId ? getVisibleQuoteIds(requestRefId) : [];
+  const quotes = allQuotes.filter((q) => visibleIds.includes(q.id));
   const unlockedCheck = requestRefId ? isUnlocked(requestRefId) : false;
   useEffect(() => {
     setUnlockedState(unlockedCheck);
@@ -282,6 +285,7 @@ const RequestDetail = () => {
                         <div className="px-3 pb-3 pt-0 space-y-1.5 text-sm border-t border-border mt-0 pt-3 bg-muted/30">
                           <p className="font-medium text-foreground">{t("bodyShopDetails")}</p>
                           <p><span className="text-muted-foreground">{t("shopName")}:</span> {quote.shopName}</p>
+                          {quote.contactPerson && <p><span className="text-muted-foreground">{t("contactPerson")}:</span> {quote.contactPerson}</p>}
                           {quote.address && <p><span className="text-muted-foreground">{t("address")}:</span> {quote.address}</p>}
                           <p><span className="text-muted-foreground">{t("email")}:</span> <a href={`mailto:${quote.email}`} className="text-accent underline">{quote.email}</a></p>
                           {quote.phone && <p><span className="text-muted-foreground">{t("phone")}:</span> <a href={`tel:${quote.phone}`} className="text-accent underline">{quote.phone}</a></p>}

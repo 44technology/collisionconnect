@@ -30,6 +30,10 @@ const QuotePage = () => {
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [form, setForm] = useState({
     shopName: "",
+    contactPerson: "",
+    address: "",
+    email: "",
+    phone: "",
     price: "",
     estimatedTimeSelect: "",
     estimatedTimeOther: "",
@@ -138,6 +142,18 @@ const QuotePage = () => {
   const handleQuoteSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const priceNum = parseFloat(form.price.replace(/[^0-9.]/g, ""));
+    if (!form.shopName.trim()) {
+      toast.error(t("quoteFormShopNameRequired"));
+      return;
+    }
+    if (!form.email.trim()) {
+      toast.error(t("enterEmail"));
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      toast.error(t("invalidEmail"));
+      return;
+    }
     if (Number.isNaN(priceNum) || priceNum < 0) {
       toast.error(t("quoteFormPriceRequired"));
       return;
@@ -160,10 +176,11 @@ const QuotePage = () => {
       estimatedCompletion += ` (${form.estimatedHours.trim()})`;
     }
     addQuote(requestRefId, {
-      shopName: form.shopName.trim() || (t("quoteFormShopNamePlaceholder") ?? "Body Shop"),
-      address: "",
-      email: "",
-      phone: "",
+      shopName: form.shopName.trim(),
+      contactPerson: form.contactPerson.trim() || undefined,
+      address: form.address.trim(),
+      email: form.email.trim(),
+      phone: form.phone.trim(),
       price: priceNum,
       estimatedCompletion,
     });
@@ -362,17 +379,61 @@ const QuotePage = () => {
                   />
                 </div>
 
-                <div>
-                  <Label htmlFor="shopName" className="text-muted-foreground font-normal text-sm">
-                    {t("quoteFormShopName")} ({t("optional") ?? "optional"})
-                  </Label>
-                  <Input
-                    id="shopName"
-                    value={form.shopName}
-                    onChange={(e) => setForm((p) => ({ ...p, shopName: e.target.value }))}
-                    placeholder={t("quoteFormShopNamePlaceholder")}
-                    className="mt-1"
-                  />
+                <div className="border-t border-border pt-4 space-y-4">
+                  <p className="text-sm font-medium text-muted-foreground">{t("quoteFormYourDetails")}</p>
+                  <div>
+                    <Label htmlFor="shopName">{t("quoteFormShopName")}</Label>
+                    <Input
+                      id="shopName"
+                      value={form.shopName}
+                      onChange={(e) => setForm((p) => ({ ...p, shopName: e.target.value }))}
+                      placeholder={t("quoteFormShopNamePlaceholder")}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="contactPerson">{t("quoteFormContactPerson")}</Label>
+                    <Input
+                      id="contactPerson"
+                      value={form.contactPerson}
+                      onChange={(e) => setForm((p) => ({ ...p, contactPerson: e.target.value }))}
+                      placeholder={t("quoteFormContactPersonPlaceholder")}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="address">{t("quoteFormAddress")}</Label>
+                    <Input
+                      id="address"
+                      value={form.address}
+                      onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))}
+                      placeholder={t("quoteFormAddressPlaceholder")}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="email">{t("quoteFormEmail")}</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={form.email}
+                        onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+                        placeholder="shop@example.com"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="phone">{t("quoteFormPhone")}</Label>
+                      <Input
+                        id="phone"
+                        value={form.phone}
+                        onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
+                        placeholder="+1 234 567 8900"
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <Button type="submit" className="w-full" variant="hero">

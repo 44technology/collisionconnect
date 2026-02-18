@@ -23,7 +23,7 @@ const AdminBodyShops = () => {
   const { user, isAdmin } = useAuth();
   const [shops, setShops] = useState<AdminBodyShop[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", whatsappPhone: "" });
+  const [form, setForm] = useState({ name: "", whatsappPhone: "", zipCode: "" });
   const [adding, setAdding] = useState(false);
 
   useEffect(() => {
@@ -43,10 +43,10 @@ const AdminBodyShops = () => {
       toast.error(t("adminBodyShopNameRequired") ?? "Shop name is required.");
       return;
     }
-    updateBodyShop(id, { name: form.name.trim(), whatsappPhone: form.whatsappPhone });
+    updateBodyShop(id, { name: form.name.trim(), whatsappPhone: form.whatsappPhone, zipCode: form.zipCode });
     toast.success(t("saved") ?? "Saved.");
     setEditingId(null);
-    setForm({ name: "", whatsappPhone: "" });
+    setForm({ name: "", whatsappPhone: "", zipCode: "" });
     refresh();
   };
 
@@ -55,9 +55,9 @@ const AdminBodyShops = () => {
       toast.error(t("adminBodyShopNameRequired") ?? "Shop name is required.");
       return;
     }
-    addBodyShop({ name: form.name.trim(), whatsappPhone: form.whatsappPhone });
+    addBodyShop({ name: form.name.trim(), whatsappPhone: form.whatsappPhone, zipCode: form.zipCode });
     toast.success(t("adminBodyShopAdded") ?? "Body shop added.");
-    setForm({ name: "", whatsappPhone: "" });
+    setForm({ name: "", whatsappPhone: "", zipCode: "" });
     setAdding(false);
     refresh();
   };
@@ -127,9 +127,19 @@ const AdminBodyShops = () => {
                   placeholder="+1 954 123 4567"
                 />
               </div>
+              <div>
+                <Label htmlFor="add-zip">{t("adminBodyShopZipCode")}</Label>
+                <Input
+                  id="add-zip"
+                  value={form.zipCode}
+                  onChange={(e) => setForm((f) => ({ ...f, zipCode: e.target.value }))}
+                  placeholder="33021"
+                />
+                <p className="text-xs text-muted-foreground mt-1">{t("adminBodyShopZipHint")}</p>
+              </div>
               <div className="flex gap-2">
                 <Button onClick={handleAdd}>{t("add") ?? "Add"}</Button>
-                <Button variant="outline" onClick={() => { setAdding(false); setForm({ name: "", whatsappPhone: "" }); }}>
+                <Button variant="outline" onClick={() => { setAdding(false); setForm({ name: "", whatsappPhone: "", zipCode: "" }); }}>
                   {t("cancel") ?? "Cancel"}
                 </Button>
               </div>
@@ -162,17 +172,27 @@ const AdminBodyShops = () => {
                         className="mt-1"
                       />
                     </div>
+                    <div>
+                      <Label className="text-xs">{t("adminBodyShopZipCode")}</Label>
+                      <Input
+                        value={form.zipCode}
+                        onChange={(e) => setForm((f) => ({ ...f, zipCode: e.target.value }))}
+                        className="mt-1"
+                        placeholder="33021"
+                      />
+                    </div>
                     <div className="flex gap-2">
                       <Button size="sm" onClick={() => handleSaveEdit(shop.id)}>{t("save") ?? "Save"}</Button>
-                      <Button size="sm" variant="outline" onClick={() => { setEditingId(null); setForm({ name: "", whatsappPhone: "" }); }}>{t("cancel") ?? "Cancel"}</Button>
+                      <Button size="sm" variant="outline" onClick={() => { setEditingId(null); setForm({ name: "", whatsappPhone: "", zipCode: "" }); }}>{t("cancel") ?? "Cancel"}</Button>
                     </div>
                   </div>
-                ) : (
+                    ) : (
                   <>
                     <div>
                       <p className="font-medium text-foreground">{shop.name}</p>
                       <p className="text-sm text-muted-foreground">
                         {t("adminBodyShopWhatsAppPhone")}: {shop.whatsappPhone || "—"}
+                        {shop.zipCode ? ` · ${t("zip")} ${shop.zipCode}` : ""}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
@@ -187,7 +207,7 @@ const AdminBodyShops = () => {
                         variant="ghost"
                         onClick={() => {
                           setEditingId(shop.id);
-                          setForm({ name: shop.name, whatsappPhone: shop.whatsappPhone });
+                          setForm({ name: shop.name, whatsappPhone: shop.whatsappPhone ?? "", zipCode: shop.zipCode ?? "" });
                         }}
                       >
                         <Pencil className="w-4 h-4" />

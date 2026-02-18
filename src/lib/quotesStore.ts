@@ -7,6 +7,8 @@ export type BodyShopQuote = {
   id: string;
   requestRefId: string;
   shopName: string;
+  /** Contact person name – shown to customer after $4.99 unlock */
+  contactPerson?: string;
   address: string;
   email: string;
   phone: string;

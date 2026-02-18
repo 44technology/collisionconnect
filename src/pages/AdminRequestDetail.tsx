@@ -29,7 +29,9 @@ import { useBids, shopAmountToCustomerPrice } from "@/lib/bidsStore";
 import { useLanguage } from "@/lib/LanguageContext";
 import { useNotifications } from "@/lib/notificationContext";
 import { getShopRequestById } from "@/lib/shopRequests";
-import { getAllBodyShops, normalizeWhatsAppPhone } from "@/lib/bodyShopsStore";
+import { getBodyShopsNearZip, normalizeWhatsAppPhone } from "@/lib/bodyShopsStore";
+import { getQuotesByRequestRefId } from "@/lib/quotesStore";
+import { getVisibleQuoteIds, setVisibleQuoteIds } from "@/lib/visibleQuotesStore";
 import { toast } from "sonner";
 
 const AdminRequestDetail = () => {
@@ -52,6 +54,11 @@ const AdminRequestDetail = () => {
   const [selectedBidIds, setSelectedBidIds] = useState<string[]>([]);
   const [winningAmount, setWinningAmount] = useState("");
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  const [selectedQuoteIds, setSelectedQuoteIds] = useState<string[]>([]);
+
+  const requestRefId = request ? ((request as { refId?: string }).refId ?? String(request.id)) : "";
+  const quotes = requestRefId ? getQuotesByRequestRefId(requestRefId) : [];
+  const visibleQuoteIds = requestRefId ? getVisibleQuoteIds(requestRefId) : [];
 
   const bids = request ? getBids(request.id) : [];
   const sortedBids = [...bids].sort((a, b) => a.amount - b.amount);
@@ -70,6 +77,10 @@ const AdminRequestDetail = () => {
       setWinningAmount(win != null ? String(win) : "");
     }
   }, [request?.id]);
+
+  useEffect(() => {
+    setSelectedQuoteIds(visibleQuoteIds);
+  }, [requestRefId, visibleQuoteIds.join(",")]);
 
   const selectAllBids = () => {
     setSelectedBidIds(sortedBids.map((b) => b.id));
@@ -185,11 +196,10 @@ const AdminRequestDetail = () => {
           </CardContent>
         </Card>
 
-        {/* Send quote link to body shops via WhatsApp */}
+        {/* Send quote link to body shops near this request's zip */}
         {(() => {
-          const refId = (request as { refId?: string }).refId;
-          const quoteLink = `${typeof window !== "undefined" ? window.location.origin : ""}/quote/${refId ?? request.id}`;
-          const bodyShops = getAllBodyShops().filter((s) => normalizeWhatsAppPhone(s.whatsappPhone));
+          const quoteLink = `${typeof window !== "undefined" ? window.location.origin : ""}/quote/${requestRefId}`;
+          const bodyShops = getBodyShopsNearZip(request.zipCode ?? "").filter((s) => normalizeWhatsAppPhone(s.whatsappPhone));
           const defaultMessage = (t("adminQuoteLinkMessage") ?? "New quote request – please submit your price and turnaround time:\n").replace(/\n/g, "\n") + quoteLink;
           const openWhatsApp = (phone: string) => {
             const num = normalizeWhatsAppPhone(phone);
@@ -241,6 +251,61 @@ const AdminRequestDetail = () => {
             </Card>
           );
         })()}
+
+        {/* Body shop quotes – share which ones with customer */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Building2 className="w-5 h-5" />
+              {t("adminBodyShopQuotes")}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">{t("adminBodyShopQuotesHint")}</p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {quotes.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t("noQuotesYet")}</p>
+            ) : (
+              <>
+                <div className="flex items-center justify-between">
+                  <Label>{t("adminQuotesToShowToCustomer")}</Label>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedQuoteIds(quotes.map((q) => q.id))}>
+                    {t("selectAll")}
+                  </Button>
+                </div>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {quotes.map((quote) => (
+                    <label
+                      key={quote.id}
+                      className="flex items-start gap-3 p-3 rounded-lg border border-border bg-card text-sm cursor-pointer hover:bg-muted/30 transition-colors"
+                    >
+                      <Checkbox
+                        checked={selectedQuoteIds.includes(quote.id)}
+                        onCheckedChange={(checked) => {
+                          if (checked) setSelectedQuoteIds((prev) => [...prev, quote.id]);
+                          else setSelectedQuoteIds((prev) => prev.filter((id) => id !== quote.id));
+                        }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium">{quote.shopName} – ${quote.price.toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground">{t("quoteEstimatedCompletion")}: {quote.estimatedCompletion}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+                <Button
+                  size="sm"
+                  variant="hero"
+                  onClick={() => {
+                    setVisibleQuoteIds(requestRefId, selectedQuoteIds);
+                    toast.success(t("adminQuotesVisibilitySaved") ?? "Saved. Customer will see selected quotes.");
+                  }}
+                >
+                  {t("adminSaveQuotesVisibility")}
+                </Button>
+              </>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Fotoğraflar */}
         <Card>
