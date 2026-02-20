@@ -1,7 +1,12 @@
 /**
  * Which quote IDs the admin has shared with the customer (per request).
- * Customer only sees these quotes; full details (shop name, contact, etc.) after $4.99 unlock.
+ * When Firebase is enabled, stored in Firestore (requestMeta collection).
  */
+import { isFirebaseEnabled } from "./firebase";
+import {
+  getVisibleQuoteIdsFromFirestore,
+  setVisibleQuoteIdsInFirestore,
+} from "./requestMetaFirestore";
 
 const STORAGE_KEY = "collision_visible_quote_ids";
 
@@ -23,8 +28,23 @@ export function getVisibleQuoteIds(requestRefId: string): string[] {
   return load()[requestRefId] ?? [];
 }
 
+/** Async: Firestore when enabled. Use in UI. */
+export async function getVisibleQuoteIdsAsync(requestRefId: string): Promise<string[]> {
+  if (isFirebaseEnabled()) {
+    const ids = await getVisibleQuoteIdsFromFirestore(requestRefId);
+    if (ids.length > 0) return ids;
+  }
+  return getVisibleQuoteIds(requestRefId);
+}
+
 export function setVisibleQuoteIds(requestRefId: string, quoteIds: string[]): void {
   const data = load();
   data[requestRefId] = quoteIds;
   save(data);
+}
+
+/** Async: writes to Firestore when enabled and localStorage. Use in UI. */
+export async function setVisibleQuoteIdsAsync(requestRefId: string, quoteIds: string[]): Promise<void> {
+  if (isFirebaseEnabled()) await setVisibleQuoteIdsInFirestore(requestRefId, quoteIds);
+  setVisibleQuoteIds(requestRefId, quoteIds);
 }

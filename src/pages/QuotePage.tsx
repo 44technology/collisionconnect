@@ -7,19 +7,16 @@ import { Car, ArrowLeft, MessageCircle, MapPin, Clock, Send, Loader2, ImageIcon 
 import { useParams, Link } from "react-router-dom";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getShopRequestById } from "@/lib/shopRequests";
-import { getSubmittedRequestByRefId } from "@/lib/submittedRequestsStore";
+import { getSubmittedRequestByRefId, isRefId } from "@/lib/submittedRequestsStore";
 import { getRequestFromFirestore } from "@/lib/requestsFirestore";
+import { isFirebaseEnabled } from "@/lib/firebase";
 import type { SubmittedRequest } from "@/lib/submittedRequestsStore";
-import { addQuote } from "@/lib/quotesStore";
+import { addQuoteAsync } from "@/lib/quotesStore";
 import { useLanguage } from "@/lib/LanguageContext";
 import { toast } from "sonner";
 
 /** WhatsApp number: country code + number, no + or spaces. Default: +1 954 2499084 */
 const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER?.replace(/\D/g, "").slice(0, 12) || "19542499084";
-
-function isRefId(id: string): boolean {
-  return /^CC-[A-Z0-9]+-[A-Z0-9]+$/i.test(id);
-}
 
 const QuotePage = () => {
   const { id } = useParams<{ id: string }>();
@@ -94,10 +91,19 @@ const QuotePage = () => {
   }
 
   if (!request) {
+    const isRef = id && isRefId(id);
+    const firebaseOff = !isFirebaseEnabled();
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="text-center max-w-md">
-          <p className="text-muted-foreground mb-4">{t("requestNotFound")}</p>
+        <div className="text-center max-w-md space-y-4">
+          <p className="text-muted-foreground">{t("requestNotFound")}</p>
+          {isRef && (
+            <p className="text-sm text-muted-foreground">
+              {firebaseOff
+                ? (t("quoteLinkDbHint") ?? "Firebase is not configured. Set VITE_FIREBASE_* env vars and deploy so quote links load from the database.")
+                : (t("quoteLinkNotFoundHint") ?? "This request may not exist in the database yet. Ensure the customer submitted after Firebase was set up.")}
+            </p>
+          )}
           <Button asChild variant="outline">
             <Link to="/">{t("backToHome")}</Link>
           </Button>
@@ -139,7 +145,7 @@ const QuotePage = () => {
 
   const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
 
-  const handleQuoteSubmit = (e: React.FormEvent) => {
+  const handleQuoteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const priceNum = parseFloat(form.price.replace(/[^0-9.]/g, ""));
     if (!form.shopName.trim()) {
@@ -175,17 +181,21 @@ const QuotePage = () => {
     if (form.estimatedHours.trim()) {
       estimatedCompletion += ` (${form.estimatedHours.trim()})`;
     }
-    addQuote(requestRefId, {
-      shopName: form.shopName.trim(),
-      contactPerson: form.contactPerson.trim() || undefined,
-      address: form.address.trim(),
-      email: form.email.trim(),
-      phone: form.phone.trim(),
-      price: priceNum,
-      estimatedCompletion,
-    });
-    setQuoteSubmitted(true);
-    toast.success(t("quoteSubmittedSuccess"));
+    try {
+      await addQuoteAsync(requestRefId, {
+        shopName: form.shopName.trim(),
+        contactPerson: form.contactPerson.trim() || undefined,
+        address: form.address.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+        price: priceNum,
+        estimatedCompletion,
+      });
+      setQuoteSubmitted(true);
+      toast.success(t("quoteSubmittedSuccess"));
+    } catch (e) {
+      toast.error(t("quoteSubmitFailed") ?? "Could not save quote.");
+    }
   };
 
   return (

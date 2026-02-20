@@ -1,7 +1,14 @@
 /**
  * Admin-managed list of body shops we work with.
- * Each has name, WhatsApp phone, and zipCode (for filtering by request location).
+ * When Firebase is enabled, stored in Firestore (bodyShops collection).
  */
+import { isFirebaseEnabled } from "./firebase";
+import {
+  getAllBodyShopsFromFirestore,
+  addBodyShopToFirestore,
+  updateBodyShopInFirestore,
+  deleteBodyShopFromFirestore,
+} from "./bodyShopsFirestore";
 
 export type AdminBodyShop = {
   id: string;
@@ -9,6 +16,10 @@ export type AdminBodyShop = {
   whatsappPhone: string;
   /** Shop's ZIP code – only send quote link to shops near request's zip. Empty = all requests. */
   zipCode?: string;
+  /** Full address (e.g. from directory/API). */
+  address?: string;
+  /** Contact email. */
+  email?: string;
   createdAt: string;
 };
 
@@ -53,7 +64,16 @@ export function getAllBodyShops(): AdminBodyShop[] {
   return load();
 }
 
-/** Body shops near request zip (for sending quote link). Empty shop zip = show for all. */
+/** Async: Firestore when enabled. Use in UI. */
+export async function getAllBodyShopsAsync(): Promise<AdminBodyShop[]> {
+  if (isFirebaseEnabled()) {
+    const fromFirestore = await getAllBodyShopsFromFirestore();
+    if (fromFirestore.length > 0) return fromFirestore;
+  }
+  return getAllBodyShops();
+}
+
+/** Body shops near request zip. Use getBodyShopsNearZipAsync when Firebase enabled. */
 export function getBodyShopsNearZip(requestZip: string): AdminBodyShop[] {
   return load().filter((s) => {
     const sz = (s.zipCode ?? "").trim();
@@ -62,12 +82,30 @@ export function getBodyShopsNearZip(requestZip: string): AdminBodyShop[] {
   });
 }
 
-export function addBodyShop(data: { name: string; whatsappPhone: string; zipCode?: string }): AdminBodyShop {
+/** Async: from Firestore when enabled, then filter by zip. */
+export async function getBodyShopsNearZipAsync(requestZip: string): Promise<AdminBodyShop[]> {
+  const all = await getAllBodyShopsAsync();
+  return all.filter((s) => {
+    const sz = (s.zipCode ?? "").trim();
+    if (!sz) return true;
+    return isNearZip(requestZip, sz);
+  });
+}
+
+export function addBodyShop(data: {
+  name: string;
+  whatsappPhone: string;
+  zipCode?: string;
+  address?: string;
+  email?: string;
+}): AdminBodyShop {
   const item: AdminBodyShop = {
     id: nextId(),
     name: data.name.trim(),
     whatsappPhone: normalizeWhatsAppPhone(data.whatsappPhone),
     zipCode: (data.zipCode ?? "").trim().replace(/\D/g, "").slice(0, 5) || undefined,
+    address: (data.address ?? "").trim() || undefined,
+    email: (data.email ?? "").trim() || undefined,
     createdAt: new Date().toISOString(),
   };
   const list = load();
@@ -76,7 +114,28 @@ export function addBodyShop(data: { name: string; whatsappPhone: string; zipCode
   return item;
 }
 
-export function updateBodyShop(id: string, data: { name?: string; whatsappPhone?: string; zipCode?: string }): AdminBodyShop | null {
+/** Async: Firestore when enabled. Use in UI. */
+export async function addBodyShopAsync(data: {
+  name: string;
+  whatsappPhone: string;
+  zipCode?: string;
+  address?: string;
+  email?: string;
+}): Promise<AdminBodyShop> {
+  if (isFirebaseEnabled()) {
+    const created = await addBodyShopToFirestore(data);
+    const list = load();
+    list.push(created);
+    save(list);
+    return created;
+  }
+  return addBodyShop(data);
+}
+
+export function updateBodyShop(
+  id: string,
+  data: { name?: string; whatsappPhone?: string; zipCode?: string; address?: string; email?: string }
+): AdminBodyShop | null {
   const list = load();
   const idx = list.findIndex((x) => x.id === id);
   if (idx === -1) return null;
@@ -86,8 +145,28 @@ export function updateBodyShop(id: string, data: { name?: string; whatsappPhone?
     const z = (data.zipCode ?? "").trim().replace(/\D/g, "").slice(0, 5);
     list[idx].zipCode = z || undefined;
   }
+  if (data.address !== undefined) list[idx].address = (data.address ?? "").trim() || undefined;
+  if (data.email !== undefined) list[idx].email = (data.email ?? "").trim() || undefined;
   save(list);
   return list[idx];
+}
+
+/** Async: Firestore when enabled. */
+export async function updateBodyShopAsync(
+  id: string,
+  data: { name?: string; whatsappPhone?: string; zipCode?: string; address?: string; email?: string }
+): Promise<AdminBodyShop | null> {
+  if (isFirebaseEnabled()) {
+    const updated = await updateBodyShopInFirestore(id, data);
+    if (updated) {
+      const list = load();
+      const idx = list.findIndex((x) => x.id === id);
+      if (idx !== -1) list[idx] = updated;
+      save(list);
+    }
+    return updated;
+  }
+  return updateBodyShop(id, data);
 }
 
 export function deleteBodyShop(id: string): boolean {
@@ -95,4 +174,10 @@ export function deleteBodyShop(id: string): boolean {
   if (list.length === load().length) return false;
   save(list);
   return true;
+}
+
+/** Async: Firestore when enabled. */
+export async function deleteBodyShopAsync(id: string): Promise<boolean> {
+  if (isFirebaseEnabled()) await deleteBodyShopFromFirestore(id);
+  return deleteBodyShop(id);
 }

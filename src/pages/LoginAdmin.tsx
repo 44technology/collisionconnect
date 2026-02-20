@@ -30,7 +30,8 @@ const LoginAdmin = () => {
         }
       } catch (err: unknown) {
         const msg = err && typeof err === "object" && "message" in err ? (err as { message?: string }).message : String(err);
-        toast.error(msg ?? t("loginFailed"));
+        const text = t(msg);
+        toast.error(text !== msg ? text : msg || t("loginFailed"));
       } finally {
         setSubmitting(false);
       }

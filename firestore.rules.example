@@ -1,0 +1,40 @@
+// Örnek Firestore Security Rules – Firebase Console'da Rules sekmesine yapıştırıp düzenleyebilirsin.
+// Koleksiyonlar: users (auth tipi), customers, admin, bodyshop, quote, requests, requestMeta, unlocks
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Auth: userType + email (giriş sonrası profil için)
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    // Müşteri profilleri – doc id = uid
+    match /customers/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    // Admin profilleri – doc id = uid
+    match /admin/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    // Admin'in yönettiği body shop listesi
+    match /bodyshop/{shopId} {
+      allow read, write: if true;
+    }
+    // Body shop teklifleri (quote sayfasından eklenir)
+    match /quote/{quoteId} {
+      allow read, write: if true;
+    }
+    // Müşteri talepleri – refId ile; quote linki herkese açık
+    match /requests/{refId} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if false;
+    }
+    match /requestMeta/{requestRefId} {
+      allow read, write: if true;
+    }
+    match /unlocks/{requestRefId} {
+      allow read, write: if true;
+    }
+  }
+}

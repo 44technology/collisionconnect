@@ -1,7 +1,7 @@
 /**
  * Firestore persistence for submitted requests so quote links work from any device.
  */
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, setDoc } from "firebase/firestore";
 import { db, isFirebaseEnabled } from "./firebase";
 import type { SubmittedRequest } from "./submittedRequestsStore";
 
@@ -35,4 +35,18 @@ export async function getRequestFromFirestore(refId: string): Promise<SubmittedR
     console.warn("Failed to get request from Firestore", e);
   }
   return null;
+}
+
+/** List all submitted requests (newest first). For admin dashboard. */
+export async function getAllRequestsFromFirestore(): Promise<SubmittedRequest[]> {
+  if (!isFirebaseEnabled() || !db) return [];
+  try {
+    const snap = await getDocs(collection(db, COLLECTION));
+    const list = snap.docs.map((d) => d.data() as SubmittedRequest);
+    list.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+    return list;
+  } catch (e) {
+    console.warn("Failed to list requests from Firestore", e);
+    return [];
+  }
 }

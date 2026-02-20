@@ -22,6 +22,7 @@ import {
   ImageIcon,
   MessageCircle,
   Send,
+  Copy,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/lib/authContext";
@@ -29,9 +30,11 @@ import { useBids, shopAmountToCustomerPrice } from "@/lib/bidsStore";
 import { useLanguage } from "@/lib/LanguageContext";
 import { useNotifications } from "@/lib/notificationContext";
 import { getShopRequestById } from "@/lib/shopRequests";
-import { getBodyShopsNearZip, normalizeWhatsAppPhone } from "@/lib/bodyShopsStore";
-import { getQuotesByRequestRefId } from "@/lib/quotesStore";
-import { getVisibleQuoteIds, setVisibleQuoteIds } from "@/lib/visibleQuotesStore";
+import { getRequestFromFirestore } from "@/lib/requestsFirestore";
+import { isRefId } from "@/lib/submittedRequestsStore";
+import { getBodyShopsNearZipAsync, normalizeWhatsAppPhone } from "@/lib/bodyShopsStore";
+import { getQuotesByRequestRefIdAsync } from "@/lib/quotesStore";
+import { getVisibleQuoteIdsAsync, setVisibleQuoteIdsAsync } from "@/lib/visibleQuotesStore";
 import { toast } from "sonner";
 
 const AdminRequestDetail = () => {
@@ -48,21 +51,25 @@ const AdminRequestDetail = () => {
   } = useBids();
 
   const { t } = useLanguage();
-  const requestId = id ? parseInt(id, 10) : NaN;
-  const request = Number.isNaN(requestId) ? undefined : getShopRequestById(requestId);
+  const [firestoreRequest, setFirestoreRequest] = useState<import("@/lib/submittedRequestsStore").SubmittedRequest | null>(null);
+  const [loadingRequest, setLoadingRequest] = useState(false);
+  const mockRequest = id && !isRefId(id) ? getShopRequestById(parseInt(id, 10)) : undefined;
+  const request = firestoreRequest ?? mockRequest;
 
   const [selectedBidIds, setSelectedBidIds] = useState<string[]>([]);
   const [winningAmount, setWinningAmount] = useState("");
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [selectedQuoteIds, setSelectedQuoteIds] = useState<string[]>([]);
+  const [quotes, setQuotes] = useState<Array<{ id: string; shopName: string; price: number; estimatedCompletion: string }>>([]);
+  const [visibleQuoteIds, setVisibleQuoteIdsState] = useState<string[]>([]);
+  const [bodyShopsNearZip, setBodyShopsNearZip] = useState<Array<{ id: string; name: string; whatsappPhone: string }>>([]);
 
-  const requestRefId = request ? ((request as { refId?: string }).refId ?? String(request.id)) : "";
-  const quotes = requestRefId ? getQuotesByRequestRefId(requestRefId) : [];
-  const visibleQuoteIds = requestRefId ? getVisibleQuoteIds(requestRefId) : [];
+  const requestRefId = request ? ((request as { refId?: string }).refId ?? String((request as { id?: number }).id ?? "")) : "";
+  const requestIdNum = request && typeof (request as { id?: number }).id === "number" ? (request as { id: number }).id : null;
 
-  const bids = request ? getBids(request.id) : [];
+  const bids = requestIdNum != null ? getBids(requestIdNum) : [];
   const sortedBids = [...bids].sort((a, b) => a.amount - b.amount);
-  const currentWinning = request ? getWinningBidAmount(request.id) : null;
+  const currentWinning = requestIdNum != null ? getWinningBidAmount(requestIdNum) : null;
 
   useEffect(() => {
     if (user?.userType !== "admin") {
@@ -71,26 +78,51 @@ const AdminRequestDetail = () => {
   }, [user?.userType, navigate]);
 
   useEffect(() => {
-    if (request) {
-      setSelectedBidIds(getVisibleBidIds(request.id));
-      const win = getWinningBidAmount(request.id);
-      setWinningAmount(win != null ? String(win) : "");
+    if (!id) return;
+    if (isRefId(id)) {
+      setLoadingRequest(true);
+      getRequestFromFirestore(id)
+        .then((data) => setFirestoreRequest(data ?? null))
+        .finally(() => setLoadingRequest(false));
+    } else {
+      setFirestoreRequest(null);
     }
-  }, [request?.id]);
+  }, [id]);
 
   useEffect(() => {
-    setSelectedQuoteIds(visibleQuoteIds);
-  }, [requestRefId, visibleQuoteIds.join(",")]);
+    if (requestIdNum != null) {
+      setSelectedBidIds(getVisibleBidIds(requestIdNum));
+      const win = getWinningBidAmount(requestIdNum);
+      setWinningAmount(win != null ? String(win) : "");
+    }
+  }, [requestIdNum]);
+
+  useEffect(() => {
+    if (!requestRefId) return;
+    let cancelled = false;
+    Promise.all([
+      getQuotesByRequestRefIdAsync(requestRefId),
+      getVisibleQuoteIdsAsync(requestRefId),
+      getBodyShopsNearZipAsync(request.zipCode ?? ""),
+    ]).then(([quotesList, visibleIds, shops]) => {
+      if (cancelled) return;
+      setQuotes(quotesList);
+      setVisibleQuoteIdsState(visibleIds);
+      setSelectedQuoteIds(visibleIds);
+      setBodyShopsNearZip(shops);
+    });
+    return () => { cancelled = true; };
+  }, [requestRefId, request?.zipCode]);
 
   const selectAllBids = () => {
     setSelectedBidIds(sortedBids.map((b) => b.id));
   };
 
   const handleSaveVisibleBids = () => {
-    if (!request) return;
-    setVisibleBidIds(request.id, selectedBidIds);
+    if (!request || requestIdNum == null) return;
+    setVisibleBidIds(requestIdNum, selectedBidIds);
     if (selectedBidIds.length > 0) {
-      addNotification(request.id, request.vehicle, selectedBidIds.length);
+      addNotification(requestIdNum, request.vehicle, selectedBidIds.length);
     }
     toast.success(
       selectedBidIds.length > 0
@@ -100,15 +132,23 @@ const AdminRequestDetail = () => {
   };
 
   const handleSetWinning = () => {
-    if (!request) return;
+    if (!request || requestIdNum == null) return;
     const amount = parseInt(winningAmount, 10);
     if (Number.isNaN(amount)) return;
-    setWinningBidAmount(request.id, amount);
+    setWinningBidAmount(requestIdNum, amount);
     toast.success(t("winningSaved"));
     setWinningAmount("");
   };
 
   if (!isAdmin) return null;
+
+  if (loadingRequest) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center text-muted-foreground">{t("loading") ?? "Loading…"}</div>
+      </div>
+    );
+  }
 
   if (!request) {
     return (
@@ -174,7 +214,7 @@ const AdminRequestDetail = () => {
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-muted-foreground" />
                 <span className="text-muted-foreground">{t("location")}:</span>
-                <span className="font-medium">{request.location}{request.zipCode ? ` · ${t("zip")} ${request.zipCode}` : ""}</span>
+                <span className="font-medium">{(request as { location?: string }).location ? (request as { location: string }).location + (request.zipCode ? ` · ${t("zip")} ${request.zipCode}` : "") : (request.zipCode ? `${t("zip")} ${request.zipCode}` : "—")}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-muted-foreground" />
@@ -184,7 +224,7 @@ const AdminRequestDetail = () => {
               <div className="flex items-center gap-2">
                 <FileText className="w-4 h-4 text-muted-foreground" />
                 <span className="text-muted-foreground">{t("vin")}:</span>
-                <span className="font-mono text-xs">{request.vin}</span>
+                <span className="font-mono text-xs">{(request as { vin?: string }).vin ?? "—"}</span>
               </div>
             </div>
             {request.additionalNotes && (
@@ -198,8 +238,9 @@ const AdminRequestDetail = () => {
 
         {/* Send quote link to body shops near this request's zip */}
         {(() => {
-          const quoteLink = `${typeof window !== "undefined" ? window.location.origin : ""}/quote/${requestRefId}`;
-          const bodyShops = getBodyShopsNearZip(request.zipCode ?? "").filter((s) => normalizeWhatsAppPhone(s.whatsappPhone));
+          const baseUrl = (import.meta.env.VITE_APP_URL || (typeof window !== "undefined" ? window.location.origin : "") || "https://collisionconnect.netlify.app").replace(/\/$/, "");
+          const quoteLink = requestRefId ? `${baseUrl}/quote/${requestRefId}` : "";
+          const bodyShops = bodyShopsNearZip.filter((s) => normalizeWhatsAppPhone(s.whatsappPhone));
           const defaultMessage = (t("adminQuoteLinkMessage") ?? "New quote request – please submit your price and turnaround time:\n").replace(/\n/g, "\n") + quoteLink;
           const openWhatsApp = (phone: string) => {
             const num = normalizeWhatsAppPhone(phone);
@@ -222,7 +263,32 @@ const AdminRequestDetail = () => {
                 </p>
               </CardHeader>
               <CardContent className="space-y-3">
-                <p className="text-xs font-mono text-muted-foreground break-all">{quoteLink}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-medium text-muted-foreground shrink-0">{t("adminQuoteLinkLabel")}</span>
+                  {quoteLink ? (
+                    <>
+                      <code className="text-xs font-mono bg-muted px-2 py-1 rounded break-all flex-1 min-w-0">{quoteLink}</code>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(quoteLink);
+                            toast.success(t("linkCopied"));
+                          } catch {
+                            toast.error("Copy failed");
+                          }
+                        }}
+                      >
+                        <Copy className="w-4 h-4 mr-1" />
+                        {t("copyQuoteLink")}
+                      </Button>
+                    </>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">{t("adminQuoteLinkEmpty")}</span>
+                  )}
+                </div>
                 {bodyShops.length === 0 ? (
                   <p className="text-sm text-muted-foreground">{t("adminNoBodyShopsForWhatsApp")}</p>
                 ) : (
@@ -295,8 +361,9 @@ const AdminRequestDetail = () => {
                 <Button
                   size="sm"
                   variant="hero"
-                  onClick={() => {
-                    setVisibleQuoteIds(requestRefId, selectedQuoteIds);
+                  onClick={async () => {
+                    await setVisibleQuoteIdsAsync(requestRefId, selectedQuoteIds);
+                    setVisibleQuoteIdsState(selectedQuoteIds);
                     toast.success(t("adminQuotesVisibilitySaved") ?? "Saved. Customer will see selected quotes.");
                   }}
                 >
@@ -308,6 +375,7 @@ const AdminRequestDetail = () => {
         </Card>
 
         {/* Fotoğraflar */}
+        {request.imageUrls?.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
@@ -349,8 +417,10 @@ const AdminRequestDetail = () => {
             </Dialog>
           </CardContent>
         </Card>
+        )}
 
-        {/* Body shop teklifleri – kimlere onay verilecek */}
+        {/* Body shop bids (mock/demo only; real requests use quotes below) */}
+        {requestIdNum != null && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
@@ -436,6 +506,7 @@ const AdminRequestDetail = () => {
             </div>
           </CardContent>
         </Card>
+        )}
       </main>
     </div>
   );

@@ -3,18 +3,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Shield, ArrowLeft, MessageCircle, Plus, Pencil, Trash2 } from "lucide-react";
+import { Shield, ArrowLeft, MessageCircle, Plus, Pencil, Trash2, MapPin, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/authContext";
 import { useLanguage } from "@/lib/LanguageContext";
 import {
-  getAllBodyShops,
-  addBodyShop,
-  updateBodyShop,
-  deleteBodyShop,
+  getAllBodyShopsAsync,
+  addBodyShopAsync,
+  updateBodyShopAsync,
+  deleteBodyShopAsync,
   normalizeWhatsAppPhone,
   type AdminBodyShop,
 } from "@/lib/bodyShopsStore";
+import { searchBodyShopsFromMap, type BodyShopSearchResult } from "@/lib/bodyShopsApi";
 import { toast } from "sonner";
 
 const AdminBodyShops = () => {
@@ -23,8 +24,13 @@ const AdminBodyShops = () => {
   const { user, isAdmin } = useAuth();
   const [shops, setShops] = useState<AdminBodyShop[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", whatsappPhone: "", zipCode: "" });
+  const [form, setForm] = useState({ name: "", whatsappPhone: "", zipCode: "", address: "", email: "" });
   const [adding, setAdding] = useState(false);
+  const [importPlace, setImportPlace] = useState("");
+  const [importResults, setImportResults] = useState<BodyShopSearchResult[]>([]);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importSelected, setImportSelected] = useState<Set<string>>(new Set());
+  const [importAdding, setImportAdding] = useState(false);
 
   useEffect(() => {
     if (user?.userType !== "admin") {
@@ -32,34 +38,103 @@ const AdminBodyShops = () => {
     }
   }, [user?.userType, navigate]);
 
-  const refresh = () => setShops(getAllBodyShops());
+  const refresh = () => getAllBodyShopsAsync().then(setShops);
 
   useEffect(() => {
     refresh();
   }, []);
 
-  const handleSaveEdit = (id: string) => {
+  const handleSaveEdit = async (id: string) => {
     if (!form.name.trim()) {
       toast.error(t("adminBodyShopNameRequired") ?? "Shop name is required.");
       return;
     }
-    updateBodyShop(id, { name: form.name.trim(), whatsappPhone: form.whatsappPhone, zipCode: form.zipCode });
-    toast.success(t("saved") ?? "Saved.");
-    setEditingId(null);
-    setForm({ name: "", whatsappPhone: "", zipCode: "" });
+    const updated = await updateBodyShopAsync(id, {
+      name: form.name.trim(),
+      whatsappPhone: form.whatsappPhone,
+      zipCode: form.zipCode,
+      address: form.address,
+      email: form.email,
+    });
+    if (updated) {
+      toast.success(t("saved") ?? "Saved.");
+      setEditingId(null);
+      setForm({ name: "", whatsappPhone: "", zipCode: "", address: "", email: "" });
+      refresh();
+    }
+  };
+
+  const handleAdd = async () => {
+    if (!form.name.trim()) {
+      toast.error(t("adminBodyShopNameRequired") ?? "Shop name is required.");
+      return;
+    }
+    await addBodyShopAsync({
+      name: form.name.trim(),
+      whatsappPhone: form.whatsappPhone,
+      zipCode: form.zipCode,
+      address: form.address,
+      email: form.email,
+    });
+    toast.success(t("adminBodyShopAdded") ?? "Body shop added.");
+    setForm({ name: "", whatsappPhone: "", zipCode: "", address: "", email: "" });
+    setAdding(false);
     refresh();
   };
 
-  const handleAdd = () => {
-    if (!form.name.trim()) {
-      toast.error(t("adminBodyShopNameRequired") ?? "Shop name is required.");
+  const handleImportSearch = async () => {
+    const place = importPlace.trim();
+    if (!place) return;
+    setImportLoading(true);
+    setImportResults([]);
+    setImportSelected(new Set());
+    try {
+      const results = await searchBodyShopsFromMap(place);
+      setImportResults(results);
+      if (results.length === 0) toast.info(t("adminBodyShopNoResults") ?? "No body shops found for this location.");
+    } catch (e) {
+      toast.error("Search failed. Try another location.");
+      console.warn(e);
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
+  const toggleImportSelected = (osmId: string) => {
+    setImportSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(osmId)) next.delete(osmId);
+      else next.add(osmId);
+      return next;
+    });
+  };
+
+  const handleAddSelected = async () => {
+    const toAdd = importResults.filter((r) => r.osmId && importSelected.has(r.osmId));
+    if (toAdd.length === 0) {
+      toast.error("Select at least one shop.");
       return;
     }
-    addBodyShop({ name: form.name.trim(), whatsappPhone: form.whatsappPhone, zipCode: form.zipCode });
-    toast.success(t("adminBodyShopAdded") ?? "Body shop added.");
-    setForm({ name: "", whatsappPhone: "", zipCode: "" });
-    setAdding(false);
-    refresh();
+    setImportAdding(true);
+    let added = 0;
+    for (const r of toAdd) {
+      try {
+        await addBodyShopAsync({
+          name: r.name,
+          whatsappPhone: r.phone,
+          zipCode: r.zipCode,
+          address: r.address || undefined,
+          email: r.email || undefined,
+        });
+        added++;
+      } catch (_) {}
+    }
+    setImportAdding(false);
+    setImportSelected(new Set());
+    if (added > 0) {
+      toast.success(added === 1 ? (t("adminBodyShopAdded") ?? "Body shop added.") : `${added} body shops added.`);
+      refresh();
+    }
   };
 
   const openWhatsApp = (phone: string) => {
@@ -96,12 +171,71 @@ const AdminBodyShops = () => {
         <h1 className="text-lg font-display font-bold mb-2">{t("adminOurBodyShops")}</h1>
         <p className="text-sm text-muted-foreground mb-6">{t("adminOurBodyShopsHint")}</p>
 
-        {!adding && (
-          <Button className="mb-6" onClick={() => setAdding(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            {t("adminBodyShopAdd")}
-          </Button>
-        )}
+        <div className="mb-6 flex flex-wrap gap-3">
+          {!adding && (
+            <Button onClick={() => setAdding(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              {t("adminBodyShopAdd")}
+            </Button>
+          )}
+        </div>
+
+        <Card className="mb-6 border-border">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <MapPin className="w-4 h-4" />
+              {t("adminBodyShopImportFromMap")}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">{t("adminBodyShopImportHint")}</p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-2 flex-wrap">
+              <Input
+                value={importPlace}
+                onChange={(e) => setImportPlace(e.target.value)}
+                placeholder={t("adminBodyShopSearchPlaceholder")}
+                className="max-w-xs"
+                onKeyDown={(e) => e.key === "Enter" && handleImportSearch()}
+              />
+              <Button onClick={handleImportSearch} disabled={importLoading}>
+                {importLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                {t("adminBodyShopSearchButton")}
+              </Button>
+            </div>
+            {importResults.length > 0 && (
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">{importResults.length} found</span>
+                  <Button size="sm" onClick={handleAddSelected} disabled={importAdding || importSelected.size === 0}>
+                    {importAdding ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+                    {t("adminBodyShopAddSelected")} ({importSelected.size})
+                  </Button>
+                </div>
+                <div className="max-h-64 overflow-y-auto space-y-2 border rounded-md p-2">
+                  {importResults.map((r) => (
+                    <label
+                      key={r.osmId ?? r.name + r.phone}
+                      className="flex items-start gap-3 p-2 rounded hover:bg-muted/50 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={r.osmId ? importSelected.has(r.osmId) : false}
+                        onChange={() => r.osmId && toggleImportSelected(r.osmId)}
+                        className="mt-1"
+                      />
+                      <div className="min-w-0 text-sm">
+                        <p className="font-medium truncate">{r.name}</p>
+                        {r.phone && <p className="text-muted-foreground">{r.phone}</p>}
+                        {r.address && <p className="text-muted-foreground truncate">{r.address}</p>}
+                        {r.email && <p className="text-muted-foreground truncate">{r.email}</p>}
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
 
         {adding && (
           <Card className="mb-6 border-accent/30">
@@ -128,6 +262,25 @@ const AdminBodyShops = () => {
                 />
               </div>
               <div>
+                <Label htmlFor="add-email">{t("adminBodyShopEmail")}</Label>
+                <Input
+                  id="add-email"
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                  placeholder="shop@example.com"
+                />
+              </div>
+              <div>
+                <Label htmlFor="add-address">{t("adminBodyShopAddress")}</Label>
+                <Input
+                  id="add-address"
+                  value={form.address}
+                  onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+                  placeholder="123 Main St, City, FL"
+                />
+              </div>
+              <div>
                 <Label htmlFor="add-zip">{t("adminBodyShopZipCode")}</Label>
                 <Input
                   id="add-zip"
@@ -139,7 +292,7 @@ const AdminBodyShops = () => {
               </div>
               <div className="flex gap-2">
                 <Button onClick={handleAdd}>{t("add") ?? "Add"}</Button>
-                <Button variant="outline" onClick={() => { setAdding(false); setForm({ name: "", whatsappPhone: "", zipCode: "" }); }}>
+                <Button variant="outline" onClick={() => { setAdding(false); setForm({ name: "", whatsappPhone: "", zipCode: "", address: "", email: "" }); }}>
                   {t("cancel") ?? "Cancel"}
                 </Button>
               </div>
@@ -173,6 +326,23 @@ const AdminBodyShops = () => {
                       />
                     </div>
                     <div>
+                      <Label className="text-xs">{t("adminBodyShopEmail")}</Label>
+                      <Input
+                        type="email"
+                        value={form.email}
+                        onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">{t("adminBodyShopAddress")}</Label>
+                      <Input
+                        value={form.address}
+                        onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
                       <Label className="text-xs">{t("adminBodyShopZipCode")}</Label>
                       <Input
                         value={form.zipCode}
@@ -183,7 +353,7 @@ const AdminBodyShops = () => {
                     </div>
                     <div className="flex gap-2">
                       <Button size="sm" onClick={() => handleSaveEdit(shop.id)}>{t("save") ?? "Save"}</Button>
-                      <Button size="sm" variant="outline" onClick={() => { setEditingId(null); setForm({ name: "", whatsappPhone: "", zipCode: "" }); }}>{t("cancel") ?? "Cancel"}</Button>
+                      <Button size="sm" variant="outline" onClick={() => { setEditingId(null); setForm({ name: "", whatsappPhone: "", zipCode: "", address: "", email: "" }); }}>{t("cancel") ?? "Cancel"}</Button>
                     </div>
                   </div>
                     ) : (
@@ -193,6 +363,8 @@ const AdminBodyShops = () => {
                       <p className="text-sm text-muted-foreground">
                         {t("adminBodyShopWhatsAppPhone")}: {shop.whatsappPhone || "—"}
                         {shop.zipCode ? ` · ${t("zip")} ${shop.zipCode}` : ""}
+                        {shop.address ? ` · ${shop.address}` : ""}
+                        {shop.email ? ` · ${shop.email}` : ""}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
@@ -207,7 +379,7 @@ const AdminBodyShops = () => {
                         variant="ghost"
                         onClick={() => {
                           setEditingId(shop.id);
-                          setForm({ name: shop.name, whatsappPhone: shop.whatsappPhone ?? "", zipCode: shop.zipCode ?? "" });
+                          setForm({ name: shop.name, whatsappPhone: shop.whatsappPhone ?? "", zipCode: shop.zipCode ?? "", address: shop.address ?? "", email: shop.email ?? "" });
                         }}
                       >
                         <Pencil className="w-4 h-4" />
@@ -218,9 +390,10 @@ const AdminBodyShops = () => {
                         className="text-destructive hover:text-destructive"
                         onClick={() => {
                           if (window.confirm(t("adminBodyShopDeleteConfirm") ?? "Remove this body shop?")) {
-                            deleteBodyShop(shop.id);
-                            toast.success(t("adminBodyShopDeleted") ?? "Removed.");
-                            refresh();
+                            void deleteBodyShopAsync(shop.id).then(() => {
+                              toast.success(t("adminBodyShopDeleted") ?? "Removed.");
+                              refresh();
+                            });
                           }
                         }}
                       >

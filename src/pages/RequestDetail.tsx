@@ -10,13 +10,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Car, ArrowLeft, Clock, CheckCircle, FileText, DollarSign, Building2, LogOut, MapPin, ImageIcon, Lock, CreditCard } from "lucide-react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useLanguage } from "@/lib/LanguageContext";
 import { getShopRequestById } from "@/lib/shopRequests";
 import { getSubmittedRequestByRefId } from "@/lib/submittedRequestsStore";
-import { getQuotesByRequestRefId } from "@/lib/quotesStore";
-import { getVisibleQuoteIds } from "@/lib/visibleQuotesStore";
-import { isUnlocked, setUnlocked } from "@/lib/unlockStore";
+import { getQuotesByRequestRefIdAsync, type BodyShopQuote } from "@/lib/quotesStore";
+import { getVisibleQuoteIdsAsync } from "@/lib/visibleQuotesStore";
+import { isUnlockedAsync, setUnlockedAsync } from "@/lib/unlockStore";
+import { createUnlockCheckout, verifyUnlockSession } from "@/lib/unlockPayment";
 import { toast } from "sonner";
 
 function isRefId(s: string): boolean {
@@ -29,16 +30,18 @@ const demoRequests = [
   { id: 3, vehicle: "2020 BMW 3 Series", damage: "Rear bumper and trunk damage", status: "completed", createdAt: "2024-01-10" },
 ];
 
-const UNLOCK_PRICE = 4.99;
-
 const RequestDetail = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { t } = useLanguage();
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [unlockModalOpen, setUnlockModalOpen] = useState(false);
   const [unlockLoading, setUnlockLoading] = useState(false);
   const [unlocked, setUnlockedState] = useState(false);
+  const [quotes, setQuotes] = useState<BodyShopQuote[]>([]);
+  const [visibleIds, setVisibleIds] = useState<string[]>([]);
+  const [quotesLoaded, setQuotesLoaded] = useState(false);
 
   const requestRefId = id ?? "";
   const submitted = id && isRefId(id) ? getSubmittedRequestByRefId(id) : null;
@@ -76,25 +79,67 @@ const RequestDetail = () => {
         }
       : null;
 
-  const allQuotes = requestRefId ? getQuotesByRequestRefId(requestRefId) : [];
-  const visibleIds = requestRefId ? getVisibleQuoteIds(requestRefId) : [];
-  const quotes = allQuotes.filter((q) => visibleIds.includes(q.id));
-  const unlockedCheck = requestRefId ? isUnlocked(requestRefId) : false;
   useEffect(() => {
-    setUnlockedState(unlockedCheck);
-  }, [unlockedCheck]);
+    if (!requestRefId) return;
+    let cancelled = false;
+    Promise.all([
+      getQuotesByRequestRefIdAsync(requestRefId),
+      getVisibleQuoteIdsAsync(requestRefId),
+      isUnlockedAsync(requestRefId),
+    ]).then(([allQuotes, ids, isUnlockedNow]) => {
+      if (cancelled) return;
+      setVisibleIds(ids);
+      setQuotes(allQuotes.filter((q) => ids.includes(q.id)));
+      setUnlockedState(isUnlockedNow);
+      setQuotesLoaded(true);
+    });
+    return () => { cancelled = true; };
+  }, [requestRefId]);
 
-  const handleUnlockPay = () => {
-    setUnlockLoading(true);
-    setTimeout(() => {
-      if (requestRefId) {
-        setUnlocked(requestRefId);
+  // After return from Stripe: verify session and unlock (once per session_id)
+  useEffect(() => {
+    const sessionId = searchParams.get("session_id");
+    if (!sessionId || !requestRefId) return;
+
+    let cancelled = false;
+    verifyUnlockSession(sessionId).then(async (result) => {
+      if (cancelled) return;
+      if ("success" in result && result.requestRefId) {
+        await setUnlockedAsync(result.requestRefId);
+        if (cancelled) return;
         setUnlockedState(true);
         toast.success(t("unlockedSuccess"));
+      } else if ("error" in result) {
+        toast.error(result.error || t("paymentVerifyFailed"));
       }
-      setUnlockLoading(false);
-      setUnlockModalOpen(false);
-    }, 1200);
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("session_id");
+        return next;
+      }, { replace: true });
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run only when session_id appears
+  }, [requestRefId, searchParams.get("session_id")]);
+
+  const handleUnlockPay = async () => {
+    if (!requestRefId) return;
+    setUnlockLoading(true);
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const successUrl = `${origin}/dashboard/request/${encodeURIComponent(requestRefId)}`;
+    const cancelUrl = `${origin}/dashboard/request/${encodeURIComponent(requestRefId)}`;
+
+    const result = await createUnlockCheckout(requestRefId, successUrl, cancelUrl);
+
+    if ("url" in result && result.url) {
+      window.location.href = result.url;
+      return;
+    }
+    setUnlockLoading(false);
+    setUnlockModalOpen(false);
+    if ("error" in result) {
+      toast.error(result.error || t("paymentCheckoutFailed"));
+    }
   };
 
   if (!request) {
@@ -336,6 +381,7 @@ const RequestDetail = () => {
               <div className="py-4">
                 <p className="text-2xl font-bold text-accent text-center">{t("unlockQuotesPrice")}</p>
                 <p className="text-xs text-muted-foreground text-center mt-1">{t("payWithCard")}</p>
+                <p className="text-xs text-muted-foreground text-center mt-3 border-t border-border pt-3">{t("unlockPaymentNote")}</p>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setUnlockModalOpen(false)} disabled={unlockLoading}>

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Shield, Car, LogOut, Eye, DollarSign, Trophy, Settings, Building2, Users, TrendingUp, Wallet, Wrench } from "lucide-react";
@@ -8,6 +8,9 @@ import { useBids } from "@/lib/bidsStore";
 import { getSubscriptionStats } from "@/lib/subscriptionStore";
 import { useLanguage } from "@/lib/LanguageContext";
 import { shopRequestsDetail } from "@/lib/shopRequests";
+import { getAllRequestsFromFirestore } from "@/lib/requestsFirestore";
+import { isFirebaseEnabled } from "@/lib/firebase";
+import type { SubmittedRequest } from "@/lib/submittedRequestsStore";
 
 const DEMO_CUSTOMER_COUNT = 24;
 
@@ -16,10 +19,18 @@ const AdminDashboard = () => {
   const { t } = useLanguage();
   const { user, logout, isAdmin } = useAuth();
   const { getBids, getVisibleBidIds, getWinningBidAmount, getLastBids, getActiveBodyShopCount } = useBids();
+  const [firestoreRequests, setFirestoreRequests] = useState<SubmittedRequest[]>([]);
+
+  useEffect(() => {
+    if (isFirebaseEnabled()) {
+      getAllRequestsFromFirestore().then(setFirestoreRequests);
+    }
+  }, []);
 
   const activeBodyShops = getActiveBodyShopCount();
   const last5 = getLastBids(5);
   const getVehicleByRequestId = (requestId: number) => shopRequestsDetail.find((r) => r.id === requestId)?.vehicle ?? `#${requestId}`;
+  const goToDetailByRefId = (refId: string) => navigate(`/admin/dashboard/request/${refId}`);
 
   const payoutStats = (() => {
     let totalPaidToShops = 0;
@@ -182,6 +193,40 @@ const AdminDashboard = () => {
         </Card>
 
         <h2 className="text-lg font-display font-bold mb-4">{t("requestsAndBids")}</h2>
+
+        {firestoreRequests.length > 0 && (
+          <div className="space-y-3 mb-8">
+            <p className="text-sm text-muted-foreground mb-2">
+              {t("submittedRequests") ?? "Submitted requests (from customers)"} — {t("quoteLinkHint") ?? "Use the quote link to send to body shops."}
+            </p>
+            {firestoreRequests.map((req) => (
+              <Card
+                key={req.refId}
+                className="hover:border-accent/40 cursor-pointer transition-colors"
+                onClick={() => goToDetailByRefId(req.refId)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h3 className="font-semibold text-sm">{req.vehicle}</h3>
+                      <p className="text-xs text-muted-foreground line-clamp-1">{req.damage}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{req.refId} · {req.zipCode ? `${t("zip")} ${req.zipCode}` : ""}</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => { e.stopPropagation(); goToDetailByRefId(req.refId); }}
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      {t("details")}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
         <div className="space-y-3">
           {shopRequestsDetail.map((request) => {
             const bids = getBids(request.id);

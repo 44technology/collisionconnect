@@ -53,6 +53,8 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 const USERS_COLLECTION = "users";
+const CUSTOMERS_COLLECTION = "customers";
+const ADMIN_COLLECTION = "admin";
 
 function profileToAuthState(uid: string, p: UserProfile | null): AuthState {
   if (!p?.userType) return null;
@@ -92,9 +94,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       try {
-        const ref = doc(db, USERS_COLLECTION, fbUser.uid);
-        const snap = await getDoc(ref);
-        const profile = snap.exists() ? (snap.data() as UserProfile) : null;
+        const userRef = doc(db, USERS_COLLECTION, fbUser.uid);
+        const userSnap = await getDoc(userRef);
+        const userData = userSnap.exists() ? userSnap.data() : null;
+        const userType = userData?.userType as UserProfile["userType"] | undefined;
+        let profile: UserProfile | null = userData ? { ...userData, userType } as UserProfile : null;
+        if (profile?.userType === "customer") {
+          const custSnap = await getDoc(doc(db, CUSTOMERS_COLLECTION, fbUser.uid));
+          if (custSnap.exists()) {
+            const d = custSnap.data();
+            profile = { ...profile, displayName: d.displayName ?? profile.displayName, email: d.email ?? profile.email, phone: d.phone ?? profile.phone };
+          }
+        } else if (profile?.userType === "admin") {
+          const adminSnap = await getDoc(doc(db, ADMIN_COLLECTION, fbUser.uid));
+          if (adminSnap.exists()) {
+            const d = adminSnap.data();
+            profile = { ...profile, displayName: d.displayName ?? profile.displayName, email: d.email ?? profile.email };
+          }
+        }
         setUser(profileToAuthState(fbUser.uid, profile));
       } catch {
         setUser(null);
@@ -115,13 +132,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginWithEmailAndPassword = useCallback(
     async (email: string, password: string): Promise<AuthState> => {
       if (!auth || !db) throw new Error("Firebase is not configured");
-      const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
-      const ref = doc(db, USERS_COLLECTION, cred.user.uid);
-      const snap = await getDoc(ref);
-      const profile = snap.exists() ? (snap.data() as UserProfile) : null;
-      const state = profileToAuthState(cred.user.uid, profile);
-      setUser(state);
-      return state;
+      try {
+        const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
+        const userRef = doc(db, USERS_COLLECTION, cred.user.uid);
+        const userSnap = await getDoc(userRef);
+        const userData = userSnap.exists() ? userSnap.data() : null;
+        const userType = userData?.userType as UserProfile["userType"] | undefined;
+        let profile: UserProfile | null = userData ? { ...userData, userType } as UserProfile : null;
+        if (profile?.userType === "customer") {
+          const custSnap = await getDoc(doc(db, CUSTOMERS_COLLECTION, cred.user.uid));
+          if (custSnap.exists()) {
+            const d = custSnap.data();
+            profile = { ...profile, displayName: d.displayName ?? profile.displayName, email: d.email ?? profile.email, phone: d.phone ?? profile.phone };
+          }
+        } else if (profile?.userType === "admin") {
+          const adminSnap = await getDoc(doc(db, ADMIN_COLLECTION, cred.user.uid));
+          if (adminSnap.exists()) {
+            const d = adminSnap.data();
+            profile = { ...profile, displayName: d.displayName ?? profile.displayName, email: d.email ?? profile.email };
+          }
+        }
+        const state = profileToAuthState(cred.user.uid, profile);
+        setUser(state);
+        return state;
+      } catch (err: unknown) {
+        const code = err && typeof err === "object" && "code" in err ? (err as { code?: string }).code : undefined;
+        if (
+          code === "auth/invalid-credential" ||
+          code === "auth/user-not-found" ||
+          code === "auth/wrong-password" ||
+          code === "auth/invalid-email"
+        ) {
+          throw new Error("invalidEmailOrPassword");
+        }
+        if (code === "auth/user-disabled") {
+          throw new Error("userDisabled");
+        }
+        if (code === "auth/too-many-requests") {
+          throw new Error("tooManyAttempts");
+        }
+        throw err;
+      }
     },
     []
   );
@@ -142,14 +193,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!auth || !db) throw new Error("Firebase is not configured");
       const { email, password, name, phone } = params;
       const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
-      const profile: UserProfile = {
-        userType: "customer",
+      const uid = cred.user.uid;
+      await setDoc(doc(db, USERS_COLLECTION, uid), { userType: "customer", email: email.trim() });
+      await setDoc(doc(db, CUSTOMERS_COLLECTION, uid), {
         displayName: name.trim(),
         email: email.trim(),
-        phone: phone?.trim(),
-      };
-      await setDoc(doc(db, USERS_COLLECTION, cred.user.uid), profile);
-      setUser(profileToAuthState(cred.user.uid, profile));
+        phone: phone?.trim() ?? null,
+        createdAt: new Date().toISOString(),
+      });
+      setUser(profileToAuthState(uid, { userType: "customer", displayName: name.trim(), email: email.trim(), phone: phone?.trim() }));
     },
     []
   );

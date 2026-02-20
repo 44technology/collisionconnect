@@ -5,17 +5,20 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Car, ArrowLeft, Upload, X, Camera, Mail, Clock } from "lucide-react";
+import { Car, ArrowLeft, Upload, X, Camera, Mail, Clock, Lock, User } from "lucide-react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { toast } from "sonner";
 import { useLanguage } from "@/lib/LanguageContext";
+import { useAuth } from "@/lib/authContext";
 import { addSubmittedRequest, getSubmittedRequestByRefId } from "@/lib/submittedRequestsStore";
 import { saveRequestToFirestore } from "@/lib/requestsFirestore";
+import { isFirebaseEnabled } from "@/lib/firebase";
 
 const NewRequest = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useLanguage();
+  const { registerCustomer, login } = useAuth();
   const isGuestFlow = location.pathname === "/request/new";
 
   const [formData, setFormData] = useState({
@@ -31,7 +34,8 @@ const NewRequest = () => {
   });
   type SlotImage = { id: string; file: File; previewUrl: string };
   const [imagesBySlot, setImagesBySlot] = useState<Record<string, SlotImage>>({});
-  const [email, setEmail] = useState("");
+  const [account, setAccount] = useState({ fullName: "", email: "", password: "", confirmPassword: "" });
+  const [submitting, setSubmitting] = useState(false);
 
   const updateField = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -61,7 +65,7 @@ const NewRequest = () => {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.desiredTimeframe) {
       toast.error(t("desiredTimeframeTitle"));
@@ -72,6 +76,71 @@ const NewRequest = () => {
       toast.error(t("requestZipCode") + " — " + (t("requestZipCodePlaceholder") ?? "5 digits"));
       return;
     }
+
+    if (isGuestFlow) {
+      const { fullName, email: accountEmail, password, confirmPassword } = account;
+      if (!fullName.trim()) {
+        toast.error(t("fullName") + " — " + (t("enterName") ?? "Required"));
+        return;
+      }
+      if (!accountEmail.trim()) {
+        toast.error(t("enterEmail"));
+        return;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(accountEmail.trim())) {
+        toast.error(t("invalidEmail"));
+        return;
+      }
+      if (password.length < 6) {
+        toast.error(t("passwordMinLength"));
+        return;
+      }
+      if (password !== confirmPassword) {
+        toast.error(t("passwordsDoNotMatch"));
+        return;
+      }
+
+      setSubmitting(true);
+      try {
+        if (isFirebaseEnabled()) {
+          await registerCustomer({
+            email: accountEmail.trim(),
+            password,
+            name: fullName.trim(),
+          });
+        } else {
+          login("customer", fullName.trim());
+        }
+      } catch (err: unknown) {
+        const msg = err && typeof err === "object" && "message" in err ? (err as { message?: string }).message : String(err);
+        toast.error(msg ?? t("registrationFailed"));
+        setSubmitting(false);
+        return;
+      }
+
+      const vehicle = [formData.make, formData.model, formData.trim, formData.year].filter(Boolean).join(" ");
+      const refId = addSubmittedRequest({
+        vehicle: vehicle || "—",
+        make: formData.make,
+        model: formData.model,
+        trim: formData.trim,
+        year: formData.year,
+        damage: formData.damageDescription || "—",
+        zipCode: zipTrimmed,
+        desiredTimeframe: formData.desiredTimeframe,
+        additionalNotes: formData.additionalNotes || "",
+        imageUrls: [],
+        imageLabels: [],
+      });
+      const fullRequest = getSubmittedRequestByRefId(refId);
+      if (fullRequest) {
+        saveRequestToFirestore(fullRequest).catch(() => {});
+      }
+      toast.success(t("requestSubmittedSuccess"));
+      navigate(`/request/submitted?ref=${encodeURIComponent(refId)}&email=${encodeURIComponent(accountEmail.trim())}`);
+      return;
+    }
+
     const vehicle = [formData.make, formData.model, formData.trim, formData.year].filter(Boolean).join(" ");
     const refId = addSubmittedRequest({
       vehicle: vehicle || "—",
@@ -90,23 +159,9 @@ const NewRequest = () => {
     if (fullRequest) {
       saveRequestToFirestore(fullRequest).catch(() => {});
     }
-
-    if (isGuestFlow) {
-      const trimmed = email.trim();
-      if (!trimmed) {
-        toast.error(t("enterEmail"));
-        return;
-      }
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-        toast.error(t("invalidEmail"));
-        return;
-      }
-      toast.success(t("requestSubmittedSuccess"));
-      navigate(`/request/submitted?ref=${encodeURIComponent(refId)}&email=${encodeURIComponent(trimmed)}`);
-      return;
-    }
     toast.success(t("requestSubmittedSuccess"));
     navigate(`/request/submitted?ref=${encodeURIComponent(refId)}`);
+    setSubmitting(false);
   };
 
   const backHref = isGuestFlow ? "/" : "/dashboard";
@@ -411,13 +466,13 @@ const NewRequest = () => {
           </Card>
           )}
 
-          {/* Email - only for guest flow, at the end */}
+          {/* Create account – guest flow: register before submit */}
           {isGuestFlow && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Mail className="w-5 h-5 text-accent" />
-                {t("yourEmail")}
+                <User className="w-5 h-5 text-accent" />
+                {t("createAccount")}
               </CardTitle>
               <CardDescription>
                 {t("yourEmailDescription")}
@@ -425,13 +480,46 @@ const NewRequest = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
+                <Label htmlFor="request-name">{t("fullName")}</Label>
+                <Input
+                  id="request-name"
+                  type="text"
+                  placeholder="John Doe"
+                  value={account.fullName}
+                  onChange={(e) => setAccount((a) => ({ ...a, fullName: e.target.value }))}
+                  className="mt-2"
+                />
+              </div>
+              <div>
                 <Label htmlFor="request-email">{t("email")}</Label>
                 <Input
                   id="request-email"
                   type="email"
                   placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={account.email}
+                  onChange={(e) => setAccount((a) => ({ ...a, email: e.target.value }))}
+                  className="mt-2"
+                />
+              </div>
+              <div>
+                <Label htmlFor="request-password">{t("password")}</Label>
+                <Input
+                  id="request-password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={account.password}
+                  onChange={(e) => setAccount((a) => ({ ...a, password: e.target.value }))}
+                  className="mt-2"
+                />
+              </div>
+              <div>
+                <Label htmlFor="request-confirm">{t("confirmPassword")}</Label>
+                <Input
+                  id="request-confirm"
+                  type="password"
+                  placeholder="••••••••"
+                  value={account.confirmPassword}
+                  onChange={(e) => setAccount((a) => ({ ...a, confirmPassword: e.target.value }))}
                   className="mt-2"
                 />
               </div>
@@ -455,8 +543,8 @@ const NewRequest = () => {
             >
               {t("cancel")}
             </Button>
-            <Button type="submit" variant="hero" className="flex-1">
-              {t("submitRequest")}
+            <Button type="submit" variant="hero" className="flex-1" disabled={submitting}>
+              {submitting ? (t("creatingAccount") ?? "Creating account…") : t("submitRequest")}
             </Button>
           </div>
         </form>

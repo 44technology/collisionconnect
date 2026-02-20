@@ -60,6 +60,11 @@ export function getSubmittedRequestByRefId(refId: string): SubmittedRequest | un
   return load().get(refId);
 }
 
+/** RefId format: CC-XXXX-YYYY (used in quote links and Firestore doc ids) */
+export function isRefId(id: string): boolean {
+  return /^CC-[A-Z0-9]+-[A-Z0-9]+$/i.test(id);
+}
+
 export function getAllSubmittedRequests(): SubmittedRequest[] {
   return [...load().values()];
 }
