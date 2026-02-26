@@ -26,7 +26,7 @@ export async function decodeVin(vin: string): Promise<VinDecodeResult | null> {
     const json = (await res.json()) as { Results?: Array<Record<string, string>> };
     const r = json.Results?.[0];
     if (!r) return null;
-    const make = (r.Make ?? "").trim();
+    const make = formatMakeName((r.Make ?? "").trim());
     const model = (r.Model ?? "").trim();
     const year = (r.ModelYear ?? "").trim();
     const trim = (r.Trim ?? "").trim();
@@ -46,17 +46,40 @@ export async function decodeVin(vin: string): Promise<VinDecodeResult | null> {
 
 export type MakeItem = { makeId: number; makeName: string };
 
-/** All makes (for dropdown). */
+/** Format make name for display: keep short acronyms (BMW, GMC), else title-case (Toyota, Mercedes-Benz). */
+function formatMakeName(raw: string): string {
+  const s = raw.trim();
+  if (!s) return s;
+  if (/^[A-Z0-9]{2,5}$/.test(s)) return s;
+  return s
+    .split(/\s+/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ")
+    .replace(/\b(And|Or|Of|The)\b/gi, (m) => m.toLowerCase());
+}
+
+/** Car/SUV makes only (Passenger Car + Multipurpose Passenger Vehicle), deduped and sorted. */
 export async function getAllMakes(): Promise<MakeItem[]> {
-  const url = `${BASE}/GetAllMakes?format=json`;
-  try {
-    const res = await fetch(url, { headers: { Accept: "application/json" } });
-    if (!res.ok) return [];
-    const json = (await res.json()) as { Results?: Array<{ Make_ID: number; Make_Name: string }> };
-    return (json.Results ?? []).map((x) => ({ makeId: x.Make_ID, makeName: x.Make_Name }));
-  } catch {
-    return [];
+  const types = ["Passenger%20Car", "Multipurpose%20Passenger%20Vehicle"];
+  const byId = new Map<number, string>();
+  for (const vehicleType of types) {
+    try {
+      const url = `${BASE}/GetMakesForVehicleType/${vehicleType}?format=json`;
+      const res = await fetch(url, { headers: { Accept: "application/json" } });
+      if (!res.ok) continue;
+      const json = (await res.json()) as {
+        Results?: Array<{ MakeId: number; MakeName: string }>;
+      };
+      for (const x of json.Results ?? []) {
+        if (!byId.has(x.MakeId)) byId.set(x.MakeId, x.MakeName);
+      }
+    } catch {
+      continue;
+    }
   }
+  return Array.from(byId.entries())
+    .map(([makeId, makeName]) => ({ makeId, makeName: formatMakeName(makeName) }))
+    .sort((a, b) => a.makeName.localeCompare(b.makeName, "en", { sensitivity: "base" }));
 }
 
 export type ModelItem = { modelId: number; modelName: string };
