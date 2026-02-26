@@ -15,7 +15,7 @@ import {
   normalizeWhatsAppPhone,
   type AdminBodyShop,
 } from "@/lib/bodyShopsStore";
-import { searchBodyShopsFromMap, type BodyShopSearchResult } from "@/lib/bodyShopsApi";
+import { searchCollisionCentersFromMap, type BodyShopSearchResult } from "@/lib/bodyShopsApi";
 import { toast } from "sonner";
 
 const AdminBodyShops = () => {
@@ -89,14 +89,14 @@ const AdminBodyShops = () => {
     setImportResults([]);
     setImportSelected(new Set());
     try {
-      const results = await searchBodyShopsFromMap(place);
+      const results = await searchCollisionCentersFromMap(place);
       setImportResults(results);
-      if (results.length === 0) toast.info(t("adminBodyShopNoResults") ?? "No body shops found for this location.");
+      if (results.length === 0) toast.info(t("adminCollisionCenterNoResults") ?? "No collision centers found for this location.");
     } catch (e) {
       const msg = e instanceof Error ? e.message : "";
       const hint = msg.includes("429") || msg.includes("minute")
-        ? t("adminBodyShopSearchFailedRate")
-        : t("adminBodyShopSearchFailed");
+        ? t("adminCollisionCenterSearchFailedRate")
+        : t("adminCollisionCenterSearchFailed");
       toast.error(hint ?? "Search failed. Try another location (e.g. Miami, FL or 33142, USA).");
       console.warn(e);
     } finally {
@@ -136,7 +136,7 @@ const AdminBodyShops = () => {
     setImportAdding(false);
     setImportSelected(new Set());
     if (added > 0) {
-      toast.success(added === 1 ? (t("adminBodyShopAdded") ?? "Body shop added.") : `${added} body shops added.`);
+      toast.success(added === 1 ? (t("adminCollisionCenterAdded") ?? "Collision center added.") : `${added} collision centers added.`);
       refresh();
     }
   };
@@ -172,14 +172,14 @@ const AdminBodyShops = () => {
       </header>
 
       <main className="container mx-auto px-4 py-6">
-        <h1 className="text-lg font-display font-bold mb-2">{t("adminOurBodyShops")}</h1>
-        <p className="text-sm text-muted-foreground mb-6">{t("adminOurBodyShopsHint")}</p>
+        <h1 className="text-lg font-display font-bold mb-2">{t("adminOurCollisionCenters")}</h1>
+        <p className="text-sm text-muted-foreground mb-6">{t("adminOurCollisionCentersHint")}</p>
 
         <div className="mb-6 flex flex-wrap gap-3">
           {!adding && (
             <Button onClick={() => setAdding(true)}>
               <Plus className="w-4 h-4 mr-2" />
-              {t("adminBodyShopAdd")}
+              {t("adminCollisionCenterAdd")}
             </Button>
           )}
         </div>
@@ -188,16 +188,16 @@ const AdminBodyShops = () => {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <MapPin className="w-4 h-4" />
-              {t("adminBodyShopImportFromMap")}
+              {t("adminCollisionCenterImportFromMap")}
             </CardTitle>
-            <p className="text-sm text-muted-foreground">{t("adminBodyShopImportHint")}</p>
+            <p className="text-sm text-muted-foreground">{t("adminCollisionCenterImportHint")}</p>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex gap-2 flex-wrap">
               <Input
                 value={importPlace}
                 onChange={(e) => setImportPlace(e.target.value)}
-                placeholder={t("adminBodyShopSearchPlaceholder")}
+                placeholder={t("adminCollisionCenterSearchPlaceholder")}
                 className="max-w-xs"
                 onKeyDown={(e) => e.key === "Enter" && handleImportSearch()}
               />
@@ -212,7 +212,7 @@ const AdminBodyShops = () => {
                   <span className="text-sm text-muted-foreground">{importResults.length} found</span>
                   <Button size="sm" onClick={handleAddSelected} disabled={importAdding || importSelected.size === 0}>
                     {importAdding ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
-                    {t("adminBodyShopAddSelected")} ({importSelected.size})
+                    {t("adminCollisionCenterAddSelected")} ({importSelected.size})
                   </Button>
                 </div>
                 <div className="max-h-64 overflow-y-auto space-y-2 border rounded-md p-2">
@@ -244,7 +244,7 @@ const AdminBodyShops = () => {
         {adding && (
           <Card className="mb-6 border-accent/30">
             <CardHeader>
-              <CardTitle className="text-base">{t("adminBodyShopAdd")}</CardTitle>
+              <CardTitle className="text-base">{t("adminCollisionCenterAdd")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>

@@ -1,10 +1,10 @@
 /**
- * Free APIs to discover body shops: Nominatim (geocode) + Overpass (OpenStreetMap).
- * Returns: name, phone, email (if in OSM), address.
- * No API key required. Use responsibly (rate limits: Nominatim 1 req/s, Overpass avoid heavy load).
+ * Free APIs to discover collision centers: Nominatim search ("collision center near {place}") and optional Overpass.
+ * Returns: name, address, etc. No API key required. Use responsibly (rate limits: Nominatim 1 req/s).
  */
 
 const NOMINATIM = "https://nominatim.openstreetmap.org/search";
+const NOMINATIM_SEARCH_LIMIT = 20;
 /** On 504 try next (overpass-api.de often times out on busy regions). */
 const OVERPASS_ENDPOINTS = [
   "https://overpass-api.de/api/interpreter",
@@ -167,11 +167,54 @@ out body;
 }
 
 /**
- * Search body shops by place (city name or ZIP). Uses free Nominatim + Overpass APIs.
+ * Search collision centers by place using "collision center near {place}" style query via Nominatim.
+ * Returns places that match (collision centers, body shops, etc.) from OpenStreetMap.
  * Rate limit: call sparingly (e.g. 1 request per user action).
  */
+export async function searchCollisionCentersFromMap(place: string): Promise<BodyShopSearchResult[]> {
+  const trimmed = place.trim();
+  if (!trimmed) return [];
+  const locationPart = isUsZipLike(trimmed) ? `${trimmed}, USA` : trimmed;
+  const query = `collision center near ${locationPart}`;
+  const url = `${NOMINATIM}?q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=${NOMINATIM_SEARCH_LIMIT}`;
+  const res = await fetch(url, {
+    headers: { Accept: "application/json", "User-Agent": "CollisionConnect/1.0 (collision center finder)" },
+  });
+  if (!res.ok) return [];
+  const data = (await res.json()) as Array<{
+    place_id: number;
+    osm_type?: string;
+    osm_id?: number;
+    lat: string;
+    lon: string;
+    display_name: string;
+    address?: Record<string, string>;
+  }>;
+  if (!Array.isArray(data) || data.length === 0) return [];
+  const seen = new Set<string>();
+  const results: BodyShopSearchResult[] = [];
+  for (const item of data) {
+    const name = item.address?.name ?? item.address?.house_number ?? item.display_name.split(",")[0]?.trim() ?? item.display_name;
+    if (!name.trim()) continue;
+    const osmId = item.osm_type && item.osm_id != null ? `${item.osm_type}/${item.osm_id}` : `place/${item.place_id}`;
+    if (seen.has(osmId)) continue;
+    seen.add(osmId);
+    const zipCode = item.address?.postcode?.replace(/\D/g, "").slice(0, 5) || undefined;
+    results.push({
+      name: name.trim(),
+      phone: "",
+      email: "",
+      address: item.display_name || "",
+      zipCode,
+      osmId,
+    });
+  }
+  return results;
+}
+
+/**
+ * @deprecated Use searchCollisionCentersFromMap for "collision center" results. Kept for compatibility.
+ */
 export async function searchBodyShopsFromMap(place: string): Promise<BodyShopSearchResult[]> {
-  const bbox = await geocodeToBbox(place);
-  if (!bbox) return [];
-  return overpassBodyShops(bbox);
+  return searchCollisionCentersFromMap(place);
 }
