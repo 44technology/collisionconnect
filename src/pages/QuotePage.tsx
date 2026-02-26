@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Car, ArrowLeft, MessageCircle, MapPin, Clock, Send, Loader2, ImageIcon } from "lucide-react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, useSearchParams, Link } from "react-router-dom";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getShopRequestById } from "@/lib/shopRequests";
 import { getSubmittedRequestByRefId, isRefId } from "@/lib/submittedRequestsStore";
@@ -20,21 +20,28 @@ const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER?.replace(/\D/g, "")
 
 const QuotePage = () => {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const { t } = useLanguage();
   const [quoteSubmitted, setQuoteSubmitted] = useState(false);
   const [fetchedRequest, setFetchedRequest] = useState<SubmittedRequest | null>(null);
   const [loading, setLoading] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
-  const [form, setForm] = useState({
-    shopName: "",
-    contactPerson: "",
-    address: "",
-    email: "",
-    phone: "",
-    price: "",
-    estimatedTimeSelect: "",
-    estimatedTimeOther: "",
-    estimatedHours: "",
+  const [form, setForm] = useState(() => {
+    const n = searchParams.get("n") ?? "";
+    const p = searchParams.get("p") ?? "";
+    const e = searchParams.get("e") ?? "";
+    const a = searchParams.get("a") ?? "";
+    return {
+      shopName: n,
+      contactPerson: "",
+      address: a,
+      email: e,
+      phone: p ? (p.replace(/\D/g, "").length > 0 ? (p.startsWith("+") ? p : `+${p}`) : "") : "",
+      price: "",
+      estimatedTimeSelect: "",
+      estimatedTimeOther: "",
+      estimatedHours: "",
+    };
   });
 
   const timeOptions = [
@@ -67,16 +74,7 @@ const QuotePage = () => {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-    const safetyTimeout = setTimeout(() => {
-      if (!cancelled) {
-        setLoading(false);
-        setFetchedRequest(null);
-      }
-    }, 12000);
-    return () => {
-      cancelled = true;
-      clearTimeout(safetyTimeout);
-    };
+    return () => { cancelled = true; };
   }, [id, submitted]);
 
   if (loading) {
@@ -402,7 +400,7 @@ const QuotePage = () => {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="contactPerson">{t("quoteFormContactPerson")}</Label>
+                    <Label htmlFor="contactPerson">{t("quoteFormContactPerson")} ({t("optional")})</Label>
                     <Input
                       id="contactPerson"
                       value={form.contactPerson}
@@ -412,7 +410,7 @@ const QuotePage = () => {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="address">{t("quoteFormAddress")}</Label>
+                    <Label htmlFor="address">{t("quoteFormAddress")} ({t("optional")})</Label>
                     <Input
                       id="address"
                       value={form.address}

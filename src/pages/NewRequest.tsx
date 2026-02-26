@@ -10,8 +10,13 @@ import { useNavigate, useLocation, Link } from "react-router-dom";
 import { toast } from "sonner";
 import { useLanguage } from "@/lib/LanguageContext";
 import { useAuth } from "@/lib/authContext";
-import { addSubmittedRequest, getSubmittedRequestByRefId } from "@/lib/submittedRequestsStore";
+import {
+  generateRefId,
+  addSubmittedRequestWithRefId,
+  getSubmittedRequestByRefId,
+} from "@/lib/submittedRequestsStore";
 import { saveRequestToFirestore } from "@/lib/requestsFirestore";
+import { uploadRequestImages } from "@/lib/requestImagesStorage";
 import { isFirebaseEnabled } from "@/lib/firebase";
 
 const NewRequest = () => {
@@ -119,7 +124,30 @@ const NewRequest = () => {
       }
 
       const vehicle = [formData.make, formData.model, formData.trim, formData.year].filter(Boolean).join(" ");
-      const refId = addSubmittedRequest({
+      const refId = generateRefId();
+      const imageSlotOrder = [
+        { key: "front", labelKey: "frontView" },
+        { key: "rear", labelKey: "rearView" },
+        { key: "left", labelKey: "leftSide" },
+        { key: "right", labelKey: "rightSide" },
+        { key: "engine", labelKey: "engineBay" },
+        { key: "damage", labelKey: "damageDetailLabel" },
+      ];
+      const imageList = imageSlotOrder
+        .filter(({ key }) => imagesBySlot[key])
+        .map(({ key, labelKey }) => ({ file: imagesBySlot[key].file, label: t(labelKey) }));
+      let imageUrls: string[] = [];
+      let imageLabels: string[] = [];
+      if (imageList.length > 0) {
+        try {
+          const res = await uploadRequestImages(refId, imageList);
+          imageUrls = res.urls;
+          imageLabels = res.labels;
+        } catch (_) {
+          toast.error(t("photoUploadFailed") ?? "Photo upload failed. Request saved without photos.");
+        }
+      }
+      addSubmittedRequestWithRefId(refId, {
         vehicle: vehicle || "—",
         make: formData.make,
         model: formData.model,
@@ -129,8 +157,8 @@ const NewRequest = () => {
         zipCode: zipTrimmed,
         desiredTimeframe: formData.desiredTimeframe,
         additionalNotes: formData.additionalNotes || "",
-        imageUrls: [],
-        imageLabels: [],
+        imageUrls,
+        imageLabels,
       });
       const fullRequest = getSubmittedRequestByRefId(refId);
       if (fullRequest) {
@@ -138,11 +166,36 @@ const NewRequest = () => {
       }
       toast.success(t("requestSubmittedSuccess"));
       navigate(`/request/submitted?ref=${encodeURIComponent(refId)}&email=${encodeURIComponent(accountEmail.trim())}`);
+      setSubmitting(false);
       return;
     }
 
+    setSubmitting(true);
     const vehicle = [formData.make, formData.model, formData.trim, formData.year].filter(Boolean).join(" ");
-    const refId = addSubmittedRequest({
+    const refId = generateRefId();
+    const imageSlotOrder = [
+      { key: "front", labelKey: "frontView" },
+      { key: "rear", labelKey: "rearView" },
+      { key: "left", labelKey: "leftSide" },
+      { key: "right", labelKey: "rightSide" },
+      { key: "engine", labelKey: "engineBay" },
+      { key: "damage", labelKey: "damageDetailLabel" },
+    ];
+    const imageList = imageSlotOrder
+      .filter(({ key }) => imagesBySlot[key])
+      .map(({ key, labelKey }) => ({ file: imagesBySlot[key].file, label: t(labelKey) }));
+    let imageUrls: string[] = [];
+    let imageLabels: string[] = [];
+    if (imageList.length > 0) {
+      try {
+        const res = await uploadRequestImages(refId, imageList);
+        imageUrls = res.urls;
+        imageLabels = res.labels;
+      } catch (_) {
+        toast.error(t("photoUploadFailed") ?? "Photo upload failed. Request saved without photos.");
+      }
+    }
+    addSubmittedRequestWithRefId(refId, {
       vehicle: vehicle || "—",
       make: formData.make,
       model: formData.model,
@@ -152,8 +205,8 @@ const NewRequest = () => {
       zipCode: zipTrimmed,
       desiredTimeframe: formData.desiredTimeframe,
       additionalNotes: formData.additionalNotes || "",
-      imageUrls: [],
-      imageLabels: [],
+      imageUrls,
+      imageLabels,
     });
     const fullRequest = getSubmittedRequestByRefId(refId);
     if (fullRequest) {

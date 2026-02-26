@@ -13,16 +13,15 @@ import { Car, ArrowLeft, Clock, CheckCircle, FileText, DollarSign, Building2, Lo
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useLanguage } from "@/lib/LanguageContext";
 import { getShopRequestById } from "@/lib/shopRequests";
-import { getSubmittedRequestByRefId } from "@/lib/submittedRequestsStore";
+import { getSubmittedRequestByRefId, isRefId as checkRefId } from "@/lib/submittedRequestsStore";
+import { getRequestFromFirestore } from "@/lib/requestsFirestore";
 import { getQuotesByRequestRefIdAsync, type BodyShopQuote } from "@/lib/quotesStore";
 import { getVisibleQuoteIdsAsync } from "@/lib/visibleQuotesStore";
 import { isUnlockedAsync, setUnlockedAsync } from "@/lib/unlockStore";
 import { createUnlockCheckout, verifyUnlockSession } from "@/lib/unlockPayment";
 import { toast } from "sonner";
 
-function isRefId(s: string): boolean {
-  return /^CC-[A-Z0-9]+-[A-Z0-9]+$/i.test(s);
-}
+const isRefId = checkRefId;
 
 const demoRequests = [
   { id: 1, vehicle: "2022 Toyota Camry", damage: "Front bumper and headlight damage", status: "active", createdAt: "2024-01-15" },
@@ -42,6 +41,20 @@ const RequestDetail = () => {
   const [quotes, setQuotes] = useState<BodyShopQuote[]>([]);
   const [visibleIds, setVisibleIds] = useState<string[]>([]);
   const [quotesLoaded, setQuotesLoaded] = useState(false);
+  const [firestoreRequest, setFirestoreRequest] = useState<{
+    vehicle: string;
+    damage: string;
+    status: "active";
+    createdAt: string;
+    trim?: string;
+    zipCode: string;
+    desiredTimeframe?: string;
+    additionalNotes?: string;
+    imageUrls: string[];
+    imageLabels: string[];
+    location?: string;
+  } | null>(null);
+  const [requestLoading, setRequestLoading] = useState(!!(id && isRefId(id)));
 
   const requestRefId = id ?? "";
   const submitted = id && isRefId(id) ? getSubmittedRequestByRefId(id) : null;
@@ -49,35 +62,67 @@ const RequestDetail = () => {
   const legacyRequest = Number.isNaN(numericId) ? null : demoRequests.find((r) => r.id === numericId);
   const fullRequest = Number.isNaN(numericId) ? null : getShopRequestById(numericId);
 
-  const request = submitted
-    ? {
-        vehicle: submitted.vehicle,
-        damage: submitted.damage,
-        status: "active" as const,
-        createdAt: submitted.createdAt,
-        trim: submitted.trim,
-        zipCode: submitted.zipCode,
-        desiredTimeframe: submitted.desiredTimeframe,
-        additionalNotes: submitted.additionalNotes,
-        imageUrls: submitted.imageUrls,
-        imageLabels: submitted.imageLabels,
+  useEffect(() => {
+    if (!id || !isRefId(id)) {
+      setRequestLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setRequestLoading(true);
+    getRequestFromFirestore(id).then((data) => {
+      if (cancelled) return;
+      setRequestLoading(false);
+      if (!data) return;
+      setFirestoreRequest({
+        vehicle: data.vehicle,
+        damage: data.damage,
+        status: "active",
+        createdAt: data.createdAt,
+        trim: data.trim,
+        zipCode: data.zipCode,
+        desiredTimeframe: data.desiredTimeframe,
+        additionalNotes: data.additionalNotes,
+        imageUrls: data.imageUrls ?? [],
+        imageLabels: data.imageLabels ?? [],
         location: "",
-      }
-    : legacyRequest && fullRequest
+      });
+    }).catch(() => {
+      if (!cancelled) setRequestLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [id]);
+
+  const request = firestoreRequest
+    ? firestoreRequest
+    : submitted
       ? {
-          vehicle: fullRequest.vehicle + (fullRequest.trim ? ` ${fullRequest.trim}` : ""),
-          damage: fullRequest.damage,
-          status: legacyRequest.status,
-          createdAt: legacyRequest.createdAt,
-          trim: fullRequest.trim,
-          zipCode: fullRequest.zipCode,
-          desiredTimeframe: fullRequest.desiredTimeframe,
-          additionalNotes: fullRequest.additionalNotes,
-          imageUrls: fullRequest.imageUrls,
-          imageLabels: fullRequest.imageLabels,
-          location: fullRequest.location,
+          vehicle: submitted.vehicle,
+          damage: submitted.damage,
+          status: "active" as const,
+          createdAt: submitted.createdAt,
+          trim: submitted.trim,
+          zipCode: submitted.zipCode,
+          desiredTimeframe: submitted.desiredTimeframe,
+          additionalNotes: submitted.additionalNotes,
+          imageUrls: submitted.imageUrls ?? [],
+          imageLabels: submitted.imageLabels ?? [],
+          location: "",
         }
-      : null;
+      : legacyRequest && fullRequest
+        ? {
+            vehicle: fullRequest.vehicle + (fullRequest.trim ? ` ${fullRequest.trim}` : ""),
+            damage: fullRequest.damage,
+            status: legacyRequest.status,
+            createdAt: legacyRequest.createdAt,
+            trim: fullRequest.trim,
+            zipCode: fullRequest.zipCode,
+            desiredTimeframe: fullRequest.desiredTimeframe,
+            additionalNotes: fullRequest.additionalNotes,
+            imageUrls: fullRequest.imageUrls ?? [],
+            imageLabels: fullRequest.imageLabels ?? [],
+            location: fullRequest.location,
+          }
+        : null;
 
   useEffect(() => {
     if (!requestRefId) return;
@@ -142,12 +187,20 @@ const RequestDetail = () => {
     }
   };
 
+  if (requestLoading && !request) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center text-muted-foreground">{t("loading") ?? "Loading…"}</div>
+      </div>
+    );
+  }
+
   if (!request) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <p className="text-muted-foreground mb-4">Request not found.</p>
-          <Button onClick={() => navigate("/dashboard")}>Back to Dashboard</Button>
+          <p className="text-muted-foreground mb-4">{t("requestNotFound")}</p>
+          <Button onClick={() => navigate("/dashboard")}>{t("backToDashboard")}</Button>
         </div>
       </div>
     );

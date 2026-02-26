@@ -93,7 +93,11 @@ const AdminBodyShops = () => {
       setImportResults(results);
       if (results.length === 0) toast.info(t("adminBodyShopNoResults") ?? "No body shops found for this location.");
     } catch (e) {
-      toast.error("Search failed. Try another location.");
+      const msg = e instanceof Error ? e.message : "";
+      const hint = msg.includes("429") || msg.includes("minute")
+        ? t("adminBodyShopSearchFailedRate")
+        : t("adminBodyShopSearchFailed");
+      toast.error(hint ?? "Search failed. Try another location (e.g. Miami, FL or 33142, USA).");
       console.warn(e);
     } finally {
       setImportLoading(false);

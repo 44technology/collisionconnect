@@ -46,6 +46,15 @@ export function generateRefId(): string {
 
 export function addSubmittedRequest(data: Omit<SubmittedRequest, "refId" | "createdAt">): string {
   const refId = generateRefId();
+  addSubmittedRequestWithRefId(refId, data);
+  return refId;
+}
+
+/** Add a request with an existing refId (e.g. after uploading images with this refId). */
+export function addSubmittedRequestWithRefId(
+  refId: string,
+  data: Omit<SubmittedRequest, "refId" | "createdAt">
+): void {
   const map = load();
   map.set(refId, {
     ...data,
@@ -53,7 +62,6 @@ export function addSubmittedRequest(data: Omit<SubmittedRequest, "refId" | "crea
     createdAt: new Date().toISOString().slice(0, 10),
   });
   save(map);
-  return refId;
 }
 
 export function getSubmittedRequestByRefId(refId: string): SubmittedRequest | undefined {

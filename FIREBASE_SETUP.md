@@ -123,6 +123,29 @@ Bundan sonra bu e-posta/şifre ile `/login/admin` sayfasından giriş yapabilirs
 
 ---
 
+## 6. Storage (talep fotoğrafları)
+
+Talep oluşturulurken yüklenen fotoğraflar **Firebase Storage**’a kaydedilir. Storage’ı açıp kuralları ayarlayın:
+
+1. Firebase Console → **Build** → **Storage** → **Get started** (test mode ile başlayabilirsiniz).
+2. **Rules** sekmesinde aşağıdakine benzer kural kullanın (giriş yapmış kullanıcılar `requests/` altına yazabilsin; herkes okuyabilsin):
+
+```
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /requests/{refId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+  }
+}
+```
+
+3. **Publish** ile kaydedin. Böylece talep sayfasında fotoğraflar da görünür.
+
+---
+
 ## Özet kontrol listesi
 
 - [ ] Firebase’de proje oluşturuldu
@@ -133,5 +156,6 @@ Bundan sonra bu e-posta/şifre ile `/login/admin` sayfasından giriş yapabilirs
 - [ ] Netlify’da aynı env değişkenleri tanımlandı ve deploy alındı
 - [ ] Firestore Rules ayarlandı (en azından `firestore.rules.example` ile)
 - [ ] İlk admin kullanıcısı Auth + Firestore `users` dokümanı oluşturuldu
+- [ ] Storage açıldı ve kurallar ayarlandı (talep fotoğrafları için)
 
-Bu adımlardan sonra uygulama Firebase’e bağlı çalışır; talepler Firestore’a yazılır ve quote linkleri doğru şekilde açılır.
+Bu adımlardan sonra uygulama Firebase’e bağlı çalışır; talepler ve fotoğraflar kaydedilir, talep detayında ve quote linkinde görünür.

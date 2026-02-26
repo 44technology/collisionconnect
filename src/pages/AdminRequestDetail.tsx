@@ -62,7 +62,7 @@ const AdminRequestDetail = () => {
   const [selectedQuoteIds, setSelectedQuoteIds] = useState<string[]>([]);
   const [quotes, setQuotes] = useState<Array<{ id: string; shopName: string; price: number; estimatedCompletion: string }>>([]);
   const [visibleQuoteIds, setVisibleQuoteIdsState] = useState<string[]>([]);
-  const [bodyShopsNearZip, setBodyShopsNearZip] = useState<Array<{ id: string; name: string; whatsappPhone: string }>>([]);
+  const [bodyShopsNearZip, setBodyShopsNearZip] = useState<Array<{ id: string; name: string; whatsappPhone: string; address?: string; email?: string }>>([]);
 
   const requestRefId = request ? ((request as { refId?: string }).refId ?? String((request as { id?: number }).id ?? "")) : "";
   const requestIdNum = request && typeof (request as { id?: number }).id === "number" ? (request as { id: number }).id : null;
@@ -239,16 +239,28 @@ const AdminRequestDetail = () => {
         {/* Send quote link to body shops near this request's zip */}
         {(() => {
           const baseUrl = (import.meta.env.VITE_APP_URL || (typeof window !== "undefined" ? window.location.origin : "") || "https://collisionconnect.netlify.app").replace(/\/$/, "");
+          const buildQuoteLink = (shop: { name: string; whatsappPhone: string; address?: string; email?: string }) => {
+            if (!requestRefId) return baseUrl + "/quote/";
+            const params = new URLSearchParams();
+            if (shop.name) params.set("n", shop.name);
+            if (shop.whatsappPhone) params.set("p", shop.whatsappPhone.replace(/\D/g, "").slice(0, 12));
+            if (shop.email) params.set("e", shop.email);
+            if (shop.address) params.set("a", shop.address);
+            const q = params.toString();
+            return `${baseUrl}/quote/${requestRefId}${q ? `?${q}` : ""}`;
+          };
           const quoteLink = requestRefId ? `${baseUrl}/quote/${requestRefId}` : "";
           const bodyShops = bodyShopsNearZip.filter((s) => normalizeWhatsAppPhone(s.whatsappPhone));
           const defaultMessage = (t("adminQuoteLinkMessage") ?? "New quote request – please submit your price and turnaround time:\n").replace(/\n/g, "\n") + quoteLink;
-          const openWhatsApp = (phone: string) => {
-            const num = normalizeWhatsAppPhone(phone);
+          const openWhatsApp = (shop: { name: string; whatsappPhone: string; address?: string; email?: string }) => {
+            const num = normalizeWhatsAppPhone(shop.whatsappPhone);
             if (!num) return;
-            window.open(`https://wa.me/${num}?text=${encodeURIComponent(defaultMessage)}`, "_blank", "noopener,noreferrer");
+            const linkWithShop = buildQuoteLink(shop);
+            const msg = (t("adminQuoteLinkMessage") ?? "New quote request – please submit your price and turnaround time:\n").replace(/\n/g, "\n") + linkWithShop;
+            window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
           };
           const openAllTabs = () => {
-            bodyShops.forEach((s) => openWhatsApp(s.whatsappPhone));
+            bodyShops.forEach((s) => openWhatsApp(s));
             if (bodyShops.length > 0) toast.success(t("adminQuoteLinkOpenedAll") ?? "Opened WhatsApp for each body shop. Send the message in each tab.");
           };
           return (
@@ -300,7 +312,7 @@ const AdminRequestDetail = () => {
                           size="sm"
                           variant="outline"
                           className="border-[#25D366]/50 text-[#25D366] hover:bg-[#25D366]/10"
-                          onClick={() => openWhatsApp(shop.whatsappPhone)}
+                          onClick={() => openWhatsApp(shop)}
                         >
                           <MessageCircle className="w-4 h-4 mr-1.5" />
                           {shop.name}
