@@ -10,6 +10,8 @@ export type SubmittedRequest = {
   model: string;
   trim: string;
   year: string;
+  /** VIN (optional, from decode or manual) */
+  vin?: string;
   damage: string;
   zipCode: string;
   desiredTimeframe: string;

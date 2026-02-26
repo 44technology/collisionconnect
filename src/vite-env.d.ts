@@ -10,6 +10,8 @@ interface ImportMetaEnv {
   readonly VITE_WHATSAPP_NUMBER?: string;
   /** Production site URL for quote links (e.g. https://collisionconnect.netlify.app) */
   readonly VITE_APP_URL?: string;
+  /** Google Maps API key for Places (body shop search). Enable Maps JavaScript API + Places API. */
+  readonly VITE_GOOGLE_MAPS_API_KEY?: string;
 }
 
 interface ImportMeta {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +18,7 @@ import {
 import { saveRequestToFirestore } from "@/lib/requestsFirestore";
 import { uploadRequestImages } from "@/lib/requestImagesStorage";
 import { isFirebaseEnabled } from "@/lib/firebase";
+import { decodeVin, getAllMakes, getModelsForMake, type MakeItem, type ModelItem } from "@/lib/vehicleApi";
 
 const NewRequest = () => {
   const navigate = useNavigate();
@@ -41,9 +42,59 @@ const NewRequest = () => {
   const [imagesBySlot, setImagesBySlot] = useState<Record<string, SlotImage>>({});
   const [account, setAccount] = useState({ fullName: "", email: "", password: "", confirmPassword: "" });
   const [submitting, setSubmitting] = useState(false);
+  const [vinDecoding, setVinDecoding] = useState(false);
+  const [makes, setMakes] = useState<MakeItem[]>([]);
+  const [models, setModels] = useState<ModelItem[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(false);
 
   const updateField = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev) => {
+      const next = { ...prev, [field]: value };
+      if (field === "make") next.model = "";
+      return next;
+    });
+    if (field === "make") setModels([]);
+  };
+
+  useEffect(() => {
+    getAllMakes().then(setMakes);
+  }, []);
+
+  useEffect(() => {
+    if (!formData.make.trim()) {
+      setModels([]);
+      return;
+    }
+    setModelsLoading(true);
+    getModelsForMake(formData.make)
+      .then(setModels)
+      .finally(() => setModelsLoading(false));
+  }, [formData.make]);
+
+  const handleDecodeVin = async () => {
+    if (!formData.vin.trim()) return;
+    setVinDecoding(true);
+    try {
+      const result = await decodeVin(formData.vin);
+      if (result) {
+        setFormData((prev) => ({
+          ...prev,
+          make: result.make || prev.make,
+          model: result.model || prev.model,
+          year: result.year || prev.year,
+          trim: result.trim || prev.trim,
+        }));
+        if (result.make || result.model || result.year || result.trim) {
+          toast.success(t("vinDecoded") ?? "VIN decoded. Make, model, year, trim filled.");
+        } else {
+          toast.info(t("vinDecodeNoData") ?? "No vehicle data for this VIN.");
+        }
+      } else {
+        toast.error(t("vinDecodeFailed") ?? "Could not decode VIN.");
+      }
+    } finally {
+      setVinDecoding(false);
+    }
   };
 
   const handleSlotImage = (slotKey: string, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -153,6 +204,7 @@ const NewRequest = () => {
         model: formData.model,
         trim: formData.trim,
         year: formData.year,
+        vin: formData.vin.trim() || undefined,
         damage: formData.damageDescription || "—",
         zipCode: zipTrimmed,
         desiredTimeframe: formData.desiredTimeframe,
@@ -201,6 +253,7 @@ const NewRequest = () => {
       model: formData.model,
       trim: formData.trim,
       year: formData.year,
+      vin: formData.vin.trim() || undefined,
       damage: formData.damageDescription || "—",
       zipCode: zipTrimmed,
       desiredTimeframe: formData.desiredTimeframe,
@@ -336,23 +389,44 @@ const NewRequest = () => {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="make">{t("make")}</Label>
-                  <Input
-                    id="make"
-                    placeholder="Toyota"
-                    value={formData.make}
-                    onChange={(e) => updateField("make", e.target.value)}
+                  <Select
+                    value={formData.make || "__none__"}
+                    onValueChange={(v) => updateField("make", v === "__none__" ? "" : v)}
                     required
-                  />
+                  >
+                    <SelectTrigger id="make">
+                      <SelectValue placeholder={t("makePlaceholder") ?? "Select make"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">{t("makePlaceholder") ?? "Select make"}</SelectItem>
+                      {makes.map((m) => (
+                        <SelectItem key={m.makeId} value={m.makeName}>
+                          {m.makeName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="model">{t("model")}</Label>
-                  <Input
-                    id="model"
-                    placeholder="Camry"
-                    value={formData.model}
-                    onChange={(e) => updateField("model", e.target.value)}
+                  <Select
+                    value={formData.model || "__none__"}
+                    onValueChange={(v) => updateField("model", v === "__none__" ? "" : v)}
                     required
-                  />
+                    disabled={!formData.make || modelsLoading}
+                  >
+                    <SelectTrigger id="model">
+                      <SelectValue placeholder={modelsLoading ? (t("loading") ?? "Loading…") : (t("modelPlaceholder") ?? "Select model")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">{t("modelPlaceholder") ?? "Select model"}</SelectItem>
+                      {models.map((m) => (
+                        <SelectItem key={m.modelId} value={m.modelName}>
+                          {m.modelName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="trim">{t("trim")}</Label>
@@ -370,19 +444,25 @@ const NewRequest = () => {
                     placeholder="2022"
                     value={formData.year}
                     onChange={(e) => updateField("year", e.target.value)}
+                    maxLength={4}
                     required
                   />
                 </div>
               </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="vin">{t("vinOptional")}</Label>
-                <Input
-                  id="vin"
-                  placeholder="1HGBH41JXMN109186"
-                  value={formData.vin}
-                  onChange={(e) => updateField("vin", e.target.value)}
-                />
+              <div className="flex gap-2 flex-wrap items-end">
+                <div className="space-y-2 flex-1 min-w-[200px]">
+                  <Label htmlFor="vin">{t("vinOptional")}</Label>
+                  <Input
+                    id="vin"
+                    placeholder="1HGBH41JXMN109186"
+                    value={formData.vin}
+                    onChange={(e) => updateField("vin", e.target.value)}
+                    maxLength={17}
+                  />
+                </div>
+                <Button type="button" variant="outline" onClick={handleDecodeVin} disabled={vinDecoding || !formData.vin.trim()}>
+                  {vinDecoding ? (t("loading") ?? "Loading…") : (t("vinDecode") ?? "Decode VIN")}
+                </Button>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="zipCode">{t("requestZipCode")}</Label>

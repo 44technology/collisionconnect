@@ -1,6 +1,6 @@
 /**
- * Free APIs to discover collision centers: Nominatim search ("collision center near {place}") and optional Overpass.
- * Returns: name, address, etc. No API key required. Use responsibly (rate limits: Nominatim 1 req/s).
+ * Collision center / body shop search: Google Places (when key set) then fallback to Nominatim + Overpass.
+ * Google: "body shop {place}" for direct results. Free tier: Nominatim 1 req/s, Overpass avoid heavy load.
  */
 
 const NOMINATIM = "https://nominatim.openstreetmap.org/search";
@@ -167,49 +167,67 @@ out body;
 }
 
 /**
- * Search collision centers by place using "collision center near {place}" style query via Nominatim.
- * Returns places that match (collision centers, body shops, etc.) from OpenStreetMap.
+ * Search collision centers by place. When VITE_GOOGLE_MAPS_API_KEY is set, uses Google Places
+ * ("body shop {place}") first; else or on empty, tries Nominatim then Overpass.
  * Rate limit: call sparingly (e.g. 1 request per user action).
  */
 export async function searchCollisionCentersFromMap(place: string): Promise<BodyShopSearchResult[]> {
   const trimmed = place.trim();
   if (!trimmed) return [];
+
+  const { searchBodyShopsGoogle, isGooglePlacesEnabled } = await import("./bodyShopsGoogle");
+  if (isGooglePlacesEnabled()) {
+    try {
+      const googleResults = await searchBodyShopsGoogle(trimmed);
+      if (googleResults.length > 0) return googleResults;
+    } catch {
+      // fall through to free APIs
+    }
+  }
+
   const locationPart = isUsZipLike(trimmed) ? `${trimmed}, USA` : trimmed;
-  const query = `collision center near ${locationPart}`;
-  const url = `${NOMINATIM}?q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=${NOMINATIM_SEARCH_LIMIT}`;
+  const nominatimQuery = `collision center near ${locationPart}`;
+  const url = `${NOMINATIM}?q=${encodeURIComponent(nominatimQuery)}&format=json&addressdetails=1&limit=${NOMINATIM_SEARCH_LIMIT}`;
   const res = await fetch(url, {
     headers: { Accept: "application/json", "User-Agent": "CollisionConnect/1.0 (collision center finder)" },
   });
-  if (!res.ok) return [];
-  const data = (await res.json()) as Array<{
-    place_id: number;
-    osm_type?: string;
-    osm_id?: number;
-    lat: string;
-    lon: string;
-    display_name: string;
-    address?: Record<string, string>;
-  }>;
-  if (!Array.isArray(data) || data.length === 0) return [];
-  const seen = new Set<string>();
-  const results: BodyShopSearchResult[] = [];
-  for (const item of data) {
-    const name = item.address?.name ?? item.address?.house_number ?? item.display_name.split(",")[0]?.trim() ?? item.display_name;
-    if (!name.trim()) continue;
-    const osmId = item.osm_type && item.osm_id != null ? `${item.osm_type}/${item.osm_id}` : `place/${item.place_id}`;
-    if (seen.has(osmId)) continue;
-    seen.add(osmId);
-    const zipCode = item.address?.postcode?.replace(/\D/g, "").slice(0, 5) || undefined;
-    results.push({
-      name: name.trim(),
-      phone: "",
-      email: "",
-      address: item.display_name || "",
-      zipCode,
-      osmId,
-    });
+  if (res.ok) {
+    const data = (await res.json()) as Array<{
+      place_id: number;
+      osm_type?: string;
+      osm_id?: number;
+      lat: string;
+      lon: string;
+      display_name: string;
+      address?: Record<string, string>;
+    }>;
+    if (Array.isArray(data) && data.length > 0) {
+      const seen = new Set<string>();
+      const results: BodyShopSearchResult[] = [];
+      for (const item of data) {
+        const name = item.address?.name ?? item.address?.house_number ?? item.display_name.split(",")[0]?.trim() ?? item.display_name;
+        if (!name.trim()) continue;
+        const osmId = item.osm_type && item.osm_id != null ? `${item.osm_type}/${item.osm_id}` : `place/${item.place_id}`;
+        if (seen.has(osmId)) continue;
+        seen.add(osmId);
+        const zipCode = item.address?.postcode?.replace(/\D/g, "").slice(0, 5) || undefined;
+        results.push({
+          name: name.trim(),
+          phone: "",
+          email: "",
+          address: item.display_name || "",
+          zipCode,
+          osmId,
+        });
+      }
+      if (results.length > 0) return results;
+    }
   }
-  return results;
+
+  // Fallback: geocode place to bbox and get car repair / bodywork from Overpass
+  const bbox = await geocodeToBbox(trimmed);
+  if (!bbox) return [];
+  return overpassBodyShops(bbox);
 }
 
 /**
