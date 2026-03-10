@@ -1,5 +1,5 @@
 /**
- * Translations for Collision Collect — South Florida (English + Spanish).
+ * Translations for Fixly — South Florida (English + Spanish).
  * Many body shops prefer Spanish.
  */
 export type Locale = "en" | "es";
@@ -309,7 +309,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     step4Title: "Choose the Best",
     step4Desc: "Select the offer that works best for you and deliver your vehicle.",
     featuresLabel: "FEATURES",
-    featuresTitle: "Why Collision Collect?",
+    featuresTitle: "Why Fixly?",
     featuresSub: "A professional platform designed for damaged vehicle owners and body shops.",
     feature1Title: "Secure Platform",
     feature1Desc: "All body shops are verified and licensed businesses.",
@@ -335,7 +335,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     forBodyShops: "For Body Shops",
     faq: "FAQ",
     contact: "Contact",
-    copyright: "© 2026 Collision Collect. All rights reserved.",
+    copyright: "© 2026 Fixly. All rights reserved.",
     // NewRequest form (no insurance)
     vehicleInformation: "Vehicle Information",
     vehicleInformationDesc: "Enter your vehicle's basic information",
@@ -381,7 +381,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     quotePageCtaDesc: "Include your price and estimated completion time. The customer will receive your message and may contact you directly.",
     quotePageWhatsAppCta: "Send quote via WhatsApp",
     quotePageWhatsAppHint: "Opens WhatsApp with a pre-filled message. Add your quote amount and completion time.",
-    quotePageFooter: "This link was sent to you by Collision Collect. Do not share it publicly.",
+    quotePageFooter: "This link was sent to you by Fixly. Do not share it publicly.",
     quoteFormTitle: "Submit your quote",
     quoteFormSubtitle: "Your quote will be shown to the customer (price and time first). Contact details are revealed after they unlock.",
     quoteFormShopName: "Shop name",
@@ -734,7 +734,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     step4Title: "Elige la Mejor",
     step4Desc: "Selecciona la oferta que más te convenga y entrega tu vehículo.",
     featuresLabel: "CARACTERÍSTICAS",
-    featuresTitle: "¿Por qué Collision Collect?",
+    featuresTitle: "¿Por qué Fixly?",
     featuresSub: "Una plataforma profesional para dueños de vehículos siniestrados y talleres.",
     feature1Title: "Plataforma Segura",
     feature1Desc: "Todos los talleres están verificados y tienen licencia.",
@@ -760,7 +760,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     forBodyShops: "Para Talleres",
     faq: "Preguntas Frecuentes",
     contact: "Contacto",
-    copyright: "© 2026 Collision Collect. Todos los derechos reservados.",
+    copyright: "© 2026 Fixly. Todos los derechos reservados.",
     // NewRequest form (no insurance)
     vehicleInformation: "Datos del vehículo",
     vehicleInformationDesc: "Indica la información básica de tu vehículo",
@@ -806,7 +806,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     quotePageCtaDesc: "Indica tu precio y plazo de reparación. El cliente recibirá tu mensaje y podrá contactarte.",
     quotePageWhatsAppCta: "Enviar presupuesto por WhatsApp",
     quotePageWhatsAppHint: "Se abrirá WhatsApp con un mensaje preparado. Añade tu precio y plazo.",
-    quotePageFooter: "Este enlace te fue enviado por Collision Collect. No lo compartas públicamente.",
+    quotePageFooter: "Este enlace te fue enviado por Fixly. No lo compartas públicamente.",
     quoteFormTitle: "Enviar tu presupuesto",
     quoteFormSubtitle: "El cliente verá tu presupuesto (precio y plazo primero). Tus datos se muestran cuando desbloquee.",
     quoteFormShopName: "Nombre del taller",
@@ -860,7 +860,7 @@ export const translations: Record<Locale, Record<string, string>> = {
   },
 };
 
-const STORAGE_KEY = "collisioncollect-locale";
+const STORAGE_KEY = "fixly-locale";
 
 export function getStoredLocale(): Locale {
   try {

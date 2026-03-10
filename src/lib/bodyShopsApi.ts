@@ -36,7 +36,7 @@ async function geocodeToBbox(place: string): Promise<[number, number, number, nu
   const q = encodeURIComponent(query);
   const url = `${NOMINATIM}?q=${q}&format=json&limit=1`;
   const res = await fetch(url, {
-    headers: { Accept: "application/json", "User-Agent": "CollisionConnect/1.0 (body shop finder)" },
+    headers: { Accept: "application/json", "User-Agent": "Fixly/1.0 (body shop finder)" },
   });
   if (!res.ok) return null;
   const data = (await res.json()) as Array<{ boundingbox?: string[]; lat?: string; lon?: string }>;
@@ -189,7 +189,7 @@ export async function searchCollisionCentersFromMap(place: string): Promise<Body
   const nominatimQuery = `collision center near ${locationPart}`;
   const url = `${NOMINATIM}?q=${encodeURIComponent(nominatimQuery)}&format=json&addressdetails=1&limit=${NOMINATIM_SEARCH_LIMIT}`;
   const res = await fetch(url, {
-    headers: { Accept: "application/json", "User-Agent": "CollisionConnect/1.0 (collision center finder)" },
+    headers: { Accept: "application/json", "User-Agent": "Fixly/1.0 (collision center finder)" },
   });
   if (res.ok) {
     const data = (await res.json()) as Array<{

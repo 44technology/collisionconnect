@@ -145,12 +145,16 @@ const ShopDashboard = () => {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-primary-foreground/10 rounded-xl flex items-center justify-center">
-                <Building2 className="w-6 h-6" />
+              <div className="w-10 h-10 overflow-hidden rounded-xl bg-white flex items-center justify-center">
+                <img
+                  src="/fixly-logo.png"
+                  alt="Fixly"
+                  className="w-full h-full object-contain"
+                />
               </div>
               <div>
                 <span className="text-xl font-display font-bold">
-                  Collision <span className="text-accent">Collect</span>
+                  Fixly
                 </span>
                 <span className="text-xs block text-primary-foreground/60">{t("bodyShopPanel")}</span>
               </div>

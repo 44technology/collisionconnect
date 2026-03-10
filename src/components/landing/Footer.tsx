@@ -11,11 +11,15 @@ const Footer = () => {
           {/* Brand */}
           <div className="md:col-span-2">
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-10 h-10 gradient-accent rounded-xl flex items-center justify-center">
-                <Car className="w-6 h-6 text-accent-foreground" />
+              <div className="w-10 h-10 overflow-hidden rounded-xl bg-white flex items-center justify-center">
+                <img
+                  src="/fixly-logo.png"
+                  alt="Fixly"
+                  className="w-full h-full object-contain"
+                />
               </div>
               <span className="text-xl font-display font-bold text-primary-foreground">
-                Collision <span className="text-accent">Collect</span>
+                Fixly
               </span>
             </div>
             <p className="text-primary-foreground/60 max-w-md mb-6">

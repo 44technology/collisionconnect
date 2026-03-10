@@ -8,7 +8,7 @@ interface ImportMetaEnv {
   readonly VITE_FIREBASE_MESSAGING_SENDER_ID: string;
   readonly VITE_FIREBASE_APP_ID: string;
   readonly VITE_WHATSAPP_NUMBER?: string;
-  /** Production site URL for quote links (e.g. https://collisionconnect.netlify.app) */
+  /** Production site URL for quote links (e.g. https://fixly.yourdomain.com) */
   readonly VITE_APP_URL?: string;
   /** Google Maps API key for Places (body shop search). Enable Maps JavaScript API + Places API. */
   readonly VITE_GOOGLE_MAPS_API_KEY?: string;

@@ -181,7 +181,7 @@ const AdminRequestDetail = () => {
                   <Shield className="w-6 h-6 text-accent" />
                 </div>
                 <span className="text-xl font-display font-bold">
-                  Collision <span className="text-accent">Collect</span>
+                  Fixly
                   <span className="text-sm font-normal text-muted-foreground ml-2">{t("admin")} – {t("requestDetail")}</span>
                 </span>
               </div>

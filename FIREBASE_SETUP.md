@@ -1,6 +1,6 @@
 # Firebase’i Projeye Bağlama
 
-Bu rehber, Firebase (Authentication + Firestore) projenizi Collision Connect uygulamasına nasıl bağlayacağınızı adım adım anlatır.
+Bu rehber, Firebase (Authentication + Firestore) projenizi Fixly uygulamasına nasıl bağlayacağınızı adım adım anlatır.
 
 ---
 
@@ -28,7 +28,7 @@ Bu rehber, Firebase (Authentication + Firestore) projenizi Collision Connect uyg
 1. Proje genel sayfasında dişli ikon → **Proje ayarları**.
 2. **Genel** sekmesinde aşağı kaydırın → **Uygulamanız** bölümü.
 3. **</>** (Web) ikonuna tıklayın.
-4. Uygulama takma adı girin (örn. `Collision Connect`) → **Uygulamayı kaydet** (Firebase Hosting’i şimdilik işaretlemeyin).
+4. Uygulama takma adı girin (örn. `Fixly`) → **Uygulamayı kaydet** (Firebase Hosting’i şimdilik işaretlemeyin).
 5. Açılan pencerede **firebaseConfig** objesi görünür. Bu değerleri kopyalayacaksınız:
 
 ```js
