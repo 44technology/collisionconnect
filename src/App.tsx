@@ -23,6 +23,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import AdminRequestDetail from "./pages/AdminRequestDetail";
 import AdminBodyShops from "./pages/AdminBodyShops";
 import Settings from "./pages/Settings";
+import ShopPreferences from "./pages/ShopPreferences";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -65,6 +66,7 @@ const App = () => (
           <Route path="/dashboard/new-request" element={<NewRequest />} />
           <Route path="/dashboard/request/:id" element={<RequestDetail />} />
           <Route path="/shop/dashboard" element={<Navigate to="/" replace />} />
+          <Route path="/shop/preferences" element={<ShopPreferences />} />
           <Route path="/shop/dashboard/request/:id" element={<Navigate to="/" replace />} />
           <Route path="/shop/subscription" element={<Navigate to="/" replace />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />

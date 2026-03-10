@@ -3,12 +3,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, Mail, Lock, User, Phone, MapPin, ArrowLeft } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Building2, Mail, Lock, User, Phone, MapPin, ArrowLeft, Wrench } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/authContext";
 import { isFirebaseEnabled } from "@/lib/firebase";
 import { useLanguage } from "@/lib/LanguageContext";
+import type { ShopPreferences } from "@/lib/shopPreferences";
+import { SERVICE_TYPE_KEYS, LANGUAGE_KEYS } from "@/lib/shopPreferences";
+
+const SERVICE_LABEL_KEYS: Record<string, string> = {
+  collision: "shopServiceCollision",
+  paint: "shopServicePaint",
+  frame: "shopServiceFrame",
+  glass: "shopServiceGlass",
+  detailing: "shopServiceDetailing",
+};
 
 const RegisterShop = () => {
   const { t } = useLanguage();
@@ -23,9 +34,28 @@ const RegisterShop = () => {
     password: "",
     confirmPassword: "",
   });
+  const [preferences, setPreferences] = useState<ShopPreferences>({
+    serviceTypes: [],
+    languagesSpoken: [],
+    acceptInsurance: true,
+    notes: "",
+  });
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
   const { registerShop, login } = useAuth();
+
+  const toggleServiceType = (key: string) => {
+    setPreferences((p) => ({
+      ...p,
+      serviceTypes: p.serviceTypes.includes(key) ? p.serviceTypes.filter((x) => x !== key) : [...p.serviceTypes, key],
+    }));
+  };
+  const toggleLanguage = (key: string) => {
+    setPreferences((p) => ({
+      ...p,
+      languagesSpoken: p.languagesSpoken.includes(key) ? p.languagesSpoken.filter((x) => x !== key) : [...p.languagesSpoken, key],
+    }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,6 +79,7 @@ const RegisterShop = () => {
           address: formData.address || undefined,
           city: formData.city || undefined,
           state: formData.state || undefined,
+          preferences,
         });
         toast.success(t("businessAccountCreated"));
         navigate("/shop/dashboard");
@@ -236,6 +267,65 @@ const RegisterShop = () => {
                       required
                     />
                   </div>
+                </div>
+              </div>
+
+              <div className="space-y-4 pt-2 border-t border-border">
+                <div className="flex items-center gap-2">
+                  <Wrench className="w-5 h-5 text-muted-foreground" />
+                  <div>
+                    <Label className="text-base font-semibold">{t("shopPreferencesTitle")}</Label>
+                    <p className="text-xs text-muted-foreground">{t("shopPreferencesDesc")}</p>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-sm">{t("shopServiceTypes")}</Label>
+                  <p className="text-xs text-muted-foreground mb-2">{t("shopServiceTypesHint")}</p>
+                  <div className="flex flex-wrap gap-3">
+                    {SERVICE_TYPE_KEYS.map((key) => (
+                      <label key={key} className="flex items-center gap-2 cursor-pointer">
+                        <Checkbox
+                          checked={preferences.serviceTypes.includes(key)}
+                          onCheckedChange={() => toggleServiceType(key)}
+                        />
+                        <span className="text-sm">{t(SERVICE_LABEL_KEYS[key])}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-sm">{t("shopLanguagesSpoken")}</Label>
+                  <div className="flex flex-wrap gap-3 mt-1">
+                    {LANGUAGE_KEYS.map((key) => (
+                      <label key={key} className="flex items-center gap-2 cursor-pointer">
+                        <Checkbox
+                          checked={preferences.languagesSpoken.includes(key)}
+                          onCheckedChange={() => toggleLanguage(key)}
+                        />
+                        <span className="text-sm">{t(key === "en" ? "shopLanguageEn" : "shopLanguageEs")}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox
+                      checked={preferences.acceptInsurance}
+                      onCheckedChange={(v) => setPreferences((p) => ({ ...p, acceptInsurance: v === true }))}
+                    />
+                    <span className="text-sm">{t("shopAcceptInsurance")}</span>
+                  </label>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="prefNotes" className="text-sm text-muted-foreground">{t("shopPreferencesNotes")}</Label>
+                  <Input
+                    id="prefNotes"
+                    type="text"
+                    placeholder={t("shopPreferencesNotesPlaceholder")}
+                    value={preferences.notes ?? ""}
+                    onChange={(e) => setPreferences((p) => ({ ...p, notes: e.target.value }))}
+                    className="bg-muted/50"
+                  />
                 </div>
               </div>
 

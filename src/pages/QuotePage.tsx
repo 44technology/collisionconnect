@@ -225,6 +225,9 @@ const QuotePage = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8 max-w-xl">
+        <div className="mb-4 p-3 rounded-lg bg-primary/10 border border-primary/20 text-sm text-foreground">
+          {t("quotePageTrustBanner")}
+        </div>
         <div className="mb-8 text-center">
           <h1 className="text-2xl font-display font-bold text-foreground mb-2">
             {t("quotePageTitle")}

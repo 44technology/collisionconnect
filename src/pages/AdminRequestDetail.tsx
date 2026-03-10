@@ -23,6 +23,8 @@ import {
   MessageCircle,
   Send,
   Copy,
+  Smartphone,
+  Mail,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/lib/authContext";
@@ -250,14 +252,34 @@ const AdminRequestDetail = () => {
             return `${baseUrl}/quote/${requestRefId}${q ? `?${q}` : ""}`;
           };
           const quoteLink = requestRefId ? `${baseUrl}/quote/${requestRefId}` : "";
-          const bodyShops = bodyShopsNearZip.filter((s) => normalizeWhatsAppPhone(s.whatsappPhone));
-          const defaultMessage = (t("adminQuoteLinkMessage") ?? "New quote request – please submit your price and turnaround time:\n").replace(/\n/g, "\n") + quoteLink;
+          const bodyShops = bodyShopsNearZip.filter((s) => normalizeWhatsAppPhone(s.whatsappPhone) || s.email);
+          const trustIntro = t("adminQuoteLinkTrustIntro") ?? "Hi! This is an official message from Fixly – we connect vehicle owners with body shops. The link below is a real quote request, not spam or fraud. You can safely open it to submit your price and turnaround time.";
+          const quotePrompt = (t("adminQuoteLinkMessage") ?? "New quote request – please submit your price and turnaround time:\n").replace(/\n/g, "\n");
+          const buildMessage = (link: string) => `${trustIntro}\n\n${quotePrompt}${link}`;
+          const defaultMessage = buildMessage(quoteLink);
           const openWhatsApp = (shop: { name: string; whatsappPhone: string; address?: string; email?: string }) => {
             const num = normalizeWhatsAppPhone(shop.whatsappPhone);
             if (!num) return;
             const linkWithShop = buildQuoteLink(shop);
-            const msg = (t("adminQuoteLinkMessage") ?? "New quote request – please submit your price and turnaround time:\n").replace(/\n/g, "\n") + linkWithShop;
+            const msg = buildMessage(linkWithShop);
             window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
+          };
+          const openSms = (shop: { name: string; whatsappPhone: string; address?: string; email?: string }) => {
+            const num = normalizeWhatsAppPhone(shop.whatsappPhone);
+            if (!num) return;
+            const linkWithShop = buildQuoteLink(shop);
+            const msg = buildMessage(linkWithShop);
+            const smsUrl = `sms:+${num}?body=${encodeURIComponent(msg)}`;
+            window.open(smsUrl, "_blank", "noopener,noreferrer");
+          };
+          const openEmail = (shop: { name: string; whatsappPhone: string; address?: string; email?: string }) => {
+            const email = (shop.email ?? "").trim();
+            if (!email) return;
+            const linkWithShop = buildQuoteLink(shop);
+            const msg = buildMessage(linkWithShop);
+            const subject = encodeURIComponent("Quote request – Fixly");
+            const body = encodeURIComponent(msg);
+            window.open(`mailto:${email}?subject=${subject}&body=${body}`, "_blank", "noopener,noreferrer");
           };
           const openAllTabs = () => {
             bodyShops.forEach((s) => openWhatsApp(s));
@@ -271,7 +293,10 @@ const AdminRequestDetail = () => {
                   {t("adminSendQuoteLinkToShops")}
                 </CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  {t("adminSendQuoteLinkHint")}
+                  {t("adminSendQuoteLinkChannels")}
+                </p>
+                <p className="text-xs text-muted-foreground/80">
+                  {t("adminQuoteLinkTrustNote")}
                 </p>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -301,28 +326,64 @@ const AdminRequestDetail = () => {
                     <span className="text-xs text-muted-foreground">{t("adminQuoteLinkEmpty")}</span>
                   )}
                 </div>
+                {quoteLink && (
+                  <div className="space-y-1.5">
+                    <span className="text-xs font-medium text-muted-foreground">{t("adminQuoteLinkPreview")}</span>
+                    <pre className="text-xs font-sans whitespace-pre-wrap break-words p-3 rounded-lg bg-muted/50 border border-border max-h-40 overflow-y-auto">
+                      {defaultMessage}
+                    </pre>
+                  </div>
+                )}
                 {bodyShops.length === 0 ? (
                   <p className="text-sm text-muted-foreground">{t("adminNoBodyShopsForWhatsApp")}</p>
                 ) : (
                   <>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="space-y-2">
                       {bodyShops.map((shop) => (
-                        <Button
-                          key={shop.id}
-                          size="sm"
-                          variant="outline"
-                          className="border-[#25D366]/50 text-[#25D366] hover:bg-[#25D366]/10"
-                          onClick={() => openWhatsApp(shop)}
-                        >
-                          <MessageCircle className="w-4 h-4 mr-1.5" />
-                          {shop.name}
-                        </Button>
+                        <div key={shop.id} className="flex flex-wrap items-center gap-2 p-2 rounded-lg border border-border bg-muted/30">
+                          <span className="font-medium text-sm min-w-[120px]">{shop.name}</span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {normalizeWhatsAppPhone(shop.whatsappPhone) ? (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="border-[#25D366]/50 text-[#25D366] hover:bg-[#25D366]/10"
+                                  onClick={() => openWhatsApp(shop)}
+                                >
+                                  <MessageCircle className="w-4 h-4 mr-1" />
+                                  WhatsApp
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => openSms(shop)}
+                                >
+                                  <Smartphone className="w-4 h-4 mr-1" />
+                                  {t("adminSendSms")}
+                                </Button>
+                              </>
+                            ) : null}
+                            {(shop.email ?? "").trim() ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openEmail(shop)}
+                              >
+                                <Mail className="w-4 h-4 mr-1" />
+                                {t("adminSendEmail")}
+                              </Button>
+                            ) : null}
+                          </div>
+                        </div>
                       ))}
                     </div>
-                    <Button size="sm" variant="secondary" onClick={openAllTabs}>
-                      <Send className="w-4 h-4 mr-2" />
-                      {t("adminOpenAllWhatsApp")}
-                    </Button>
+                    {bodyShops.some((s) => normalizeWhatsAppPhone(s.whatsappPhone)) && (
+                      <Button size="sm" variant="secondary" onClick={openAllTabs}>
+                        <Send className="w-4 h-4 mr-2" />
+                        {t("adminOpenAllWhatsApp")}
+                      </Button>
+                    )}
                   </>
                 )}
               </CardContent>

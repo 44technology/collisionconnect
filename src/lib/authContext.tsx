@@ -8,6 +8,7 @@ import {
 } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db, isFirebaseEnabled } from "./firebase";
+import type { ShopPreferences } from "./shopPreferences";
 
 export type UserType = "customer" | "shop" | "admin";
 
@@ -47,6 +48,7 @@ type AuthContextValue = {
     address?: string;
     city?: string;
     state?: string;
+    preferences?: ShopPreferences;
   }) => Promise<void>;
 };
 
@@ -216,9 +218,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       address?: string;
       city?: string;
       state?: string;
+      preferences?: ShopPreferences;
     }) => {
       if (!auth || !db) throw new Error("Firebase is not configured");
-      const { email, password, shopName, ownerName, phone, address, city, state } = params;
+      const { email, password, shopName, ownerName, phone, address, city, state, preferences } = params;
       const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
       const profile: UserProfile = {
         userType: "shop",
@@ -230,7 +233,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         city: city?.trim(),
         state: state?.trim(),
       };
-      await setDoc(doc(db, USERS_COLLECTION, cred.user.uid), profile);
+      const docData: Record<string, unknown> = { ...profile };
+      if (preferences && Array.isArray(preferences.serviceTypes) && Array.isArray(preferences.languagesSpoken)) {
+        docData.preferences = {
+          serviceTypes: preferences.serviceTypes,
+          languagesSpoken: preferences.languagesSpoken,
+          acceptInsurance: preferences.acceptInsurance !== false,
+          notes: preferences.notes ?? "",
+        };
+      }
+      await setDoc(doc(db, USERS_COLLECTION, cred.user.uid), docData);
       setUser(profileToAuthState(cred.user.uid, profile));
     },
     []
