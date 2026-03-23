@@ -161,6 +161,12 @@ const NewRequest = () => {
       toast.error(t("requestZipCode") + " — " + (t("requestZipCodePlaceholder") ?? "5 digits"));
       return;
     }
+    const requiredImageSlots = ["front", "rear", "left", "right", "damage"];
+    const missingRequired = requiredImageSlots.filter((slot) => !imagesBySlot[slot]);
+    if (missingRequired.length > 0) {
+      toast.error(t("photosDescription") ?? "Please upload required vehicle photos before submitting.");
+      return;
+    }
 
     if (isGuestFlow) {
       const fullName = account.fullName;
@@ -260,8 +266,10 @@ const NewRequest = () => {
           const res = await uploadRequestImages(refId, imageList);
           imageUrls = res.urls;
           imageLabels = res.labels;
-        } catch (_) {
-          toast.error(t("photoUploadFailed") ?? "Photo upload failed. Request saved without photos.");
+        } catch {
+          toast.error(t("photoUploadFailed") ?? "Photo upload failed. Please retry.");
+          setSubmitting(false);
+          return;
         }
       }
       addSubmittedRequestWithRefId(refId, {
@@ -313,8 +321,10 @@ const NewRequest = () => {
         const res = await uploadRequestImages(refId, imageList);
         imageUrls = res.urls;
         imageLabels = res.labels;
-      } catch (_) {
-        toast.error(t("photoUploadFailed") ?? "Photo upload failed. Request saved without photos.");
+      } catch {
+        toast.error(t("photoUploadFailed") ?? "Photo upload failed. Please retry.");
+        setSubmitting(false);
+        return;
       }
     }
     addSubmittedRequestWithRefId(refId, {
