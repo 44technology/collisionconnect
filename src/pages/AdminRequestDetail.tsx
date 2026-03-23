@@ -33,7 +33,7 @@ import { useLanguage } from "@/lib/LanguageContext";
 import { useNotifications } from "@/lib/notificationContext";
 import { getShopRequestById } from "@/lib/shopRequests";
 import { getRequestFromFirestore } from "@/lib/requestsFirestore";
-import { isRefId } from "@/lib/submittedRequestsStore";
+import { getSubmittedRequestByRefId, isRefId } from "@/lib/submittedRequestsStore";
 import { getBodyShopsNearZipAsync, normalizeWhatsAppPhone, type AdminBodyShop, updateBodyShopAsync } from "@/lib/bodyShopsStore";
 import { getQuotesByRequestRefIdAsync } from "@/lib/quotesStore";
 import { getVisibleQuoteIdsAsync, setVisibleQuoteIdsAsync } from "@/lib/visibleQuotesStore";
@@ -86,8 +86,10 @@ const AdminRequestDetail = () => {
     if (!id) return;
     if (isRefId(id)) {
       setLoadingRequest(true);
+      const local = getSubmittedRequestByRefId(id) ?? null;
+      if (local) setFirestoreRequest(local);
       getRequestFromFirestore(id)
-        .then((data) => setFirestoreRequest(data ?? null))
+        .then((data) => setFirestoreRequest(data ?? local))
         .finally(() => setLoadingRequest(false));
     } else {
       setFirestoreRequest(null);

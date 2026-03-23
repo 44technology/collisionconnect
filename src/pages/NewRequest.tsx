@@ -50,6 +50,7 @@ const NewRequest = () => {
   const [models, setModels] = useState<ModelItem[]>([]);
   const [makesLoaded, setMakesLoaded] = useState(false);
   const [modelsLoading, setModelsLoading] = useState(false);
+  const [forceManualMakeInput, setForceManualMakeInput] = useState(false);
 
   useEffect(() => {
     // Kullanıcı yokken guest akışa girince register adımıyla başlayalım.
@@ -66,16 +67,25 @@ const NewRequest = () => {
   };
 
   useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      // If external make API hangs, unblock the form with manual input.
+      setForceManualMakeInput(true);
+      setMakesLoaded(true);
+    }, 4000);
     let cancelled = false;
     getAllMakes()
       .then((list) => {
         if (!cancelled) setMakes(list);
       })
       .finally(() => {
-        if (!cancelled) setMakesLoaded(true);
+        if (!cancelled) {
+          window.clearTimeout(timeout);
+          setMakesLoaded(true);
+        }
       });
     return () => {
       cancelled = true;
+      window.clearTimeout(timeout);
     };
   }, []);
 
@@ -353,7 +363,7 @@ const NewRequest = () => {
     { value: "3-4weeks", labelKey: "desiredTimeframe3To4Weeks" },
     { value: "1month+", labelKey: "desiredTimeframe1MonthPlus" },
   ];
-  const useManualMakeInput = makesLoaded && makes.length === 0;
+  const useManualMakeInput = forceManualMakeInput || (makesLoaded && makes.length === 0);
   const useManualModelInput = !!formData.make && !modelsLoading && models.length === 0;
 
   return (
