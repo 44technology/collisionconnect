@@ -248,6 +248,7 @@ const AdminRequestDetail = () => {
           const currentOrigin = typeof window !== "undefined" ? window.location.origin : "";
           const baseUrl = (currentOrigin || import.meta.env.VITE_APP_URL || "https://collisionconnect.netlify.app").replace(/\/$/, "");
           const hasShareableRef = isRefId(requestRefId);
+          const quoteBasePath = "/#/quote";
           const buildQuoteLink = (shop: AdminBodyShop) => {
             if (!hasShareableRef) return "";
             const params = new URLSearchParams();
@@ -256,9 +257,9 @@ const AdminRequestDetail = () => {
             if (shop.email) params.set("e", shop.email);
             if (shop.address) params.set("a", shop.address);
             const q = params.toString();
-            return `${baseUrl}/quote/${requestRefId}${q ? `?${q}` : ""}`;
+            return `${baseUrl}${quoteBasePath}/${requestRefId}${q ? `?${q}` : ""}`;
           };
-          const quoteLink = hasShareableRef ? `${baseUrl}/quote/${requestRefId}` : "";
+          const quoteLink = hasShareableRef ? `${baseUrl}${quoteBasePath}/${requestRefId}` : "";
           const bodyShops = bodyShopsNearZip.filter((s) => normalizeWhatsAppPhone(s.whatsappPhone) || s.email);
           const trustIntro = t("adminQuoteLinkTrustIntro") ?? "Hi! This is an official message from Fixly – we connect vehicle owners with body shops. The link below is a real quote request, not spam or fraud. You can safely open it to submit your price and turnaround time.";
           const quotePrompt = (t("adminQuoteLinkMessage") ?? "New quote request – please submit your price and turnaround time:\n").replace(/\n/g, "\n");
