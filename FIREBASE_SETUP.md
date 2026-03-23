@@ -157,5 +157,54 @@ service firebase.storage {
 - [ ] Firestore Rules ayarlandı (en azından `firestore.rules.example` ile)
 - [ ] İlk admin kullanıcısı Auth + Firestore `users` dokümanı oluşturuldu
 - [ ] Storage açıldı ve kurallar ayarlandı (talep fotoğrafları için)
+- [ ] **Mobil:** Firebase’de iOS ve Android uygulamaları eklendi; `GoogleService-Info.plist` ve `google-services.json` ilgili klasörlere konuldu (Capacitor kullanıyorsanız).
 
 Bu adımlardan sonra uygulama Firebase’e bağlı çalışır; talepler ve fotoğraflar kaydedilir, talep detayında ve quote linkinde görünür.
+
+---
+
+## 7. Mobil (iOS ve Android) – Capacitor için
+
+Proje **Capacitor** ile iOS ve Android’e build ediliyorsa, Firebase Console’da her iki platform için de **uygulama eklemeniz** gerekir. Böylece Auth/Firestore aynı projede çalışır; ileride push bildirim (FCM) veya App Check kullanırsanız da gerekli olur.
+
+### 7.1 Firebase Console’da iOS uygulaması
+
+1. **Proje ayarları** (dişli) → **Genel** → **Uygulamanız** bölümünde **Add app**.
+2. **Apple** (iOS) ikonuna tıklayın.
+3. **iOS bundle ID** girin. Capacitor’daki değerle aynı olmalı:
+   - `capacitor.config.ts` içindeki `appId` (örn. `app.lovable.5fa3bb974c594ffd9c997539edc62797`) **veya**
+   - Kendi bundle ID’niz (örn. `com.sirketiniz.collisionconnect`).
+4. İsteğe bağlı: App nickname, App Store ID. **Register app**.
+5. **GoogleService-Info.plist** indir butonuna tıklayın, dosyayı indirin.
+
+**Projeye ekleme:**
+
+- İndirilen `GoogleService-Info.plist` dosyasını şu klasöre kopyalayın:
+  - **`ios/App/App/GoogleService-Info.plist`**  
+  (Önce `npx cap add ios` ile `ios` klasörü oluşturulmuş olmalı.)
+
+### 7.2 Firebase Console’da Android uygulaması
+
+1. **Proje ayarları** → **Genel** → **Uygulamanız** → **Add app**.
+2. **Android** (robot) ikonuna tıklayın.
+3. **Android package name** girin. Capacitor’daki `appId` ile aynı olmalı (örn. `app.lovable.5fa3bb974c594ffd9c997539edc62797`).
+4. İsteğe bağlı: Debug signing certificate SHA-1 (gerekmedikçe boş bırakabilirsiniz). **Register app**.
+5. **google-services.json** indir butonuna tıklayın, dosyayı indirin.
+
+**Projeye ekleme:**
+
+- İndirilen `google-services.json` dosyasını şu klasöre kopyalayın:
+  - **`android/app/google-services.json`**  
+  (Önce `npx cap add android` ile `android` klasörü oluşturulmuş olmalı.)
+
+### 7.3 Önemli notlar
+
+- **Web config (.env) yeterli:** Capacitor uygulaması içinde çalışan kod şu an **web** build’i kullandığı için `.env`’deki `VITE_FIREBASE_*` değerleri Auth ve Firestore için **yeterlidir**. iOS/Android uygulamalarını Firebase’e eklemek projeyi doğru tanımlar; ileride FCM (push), Crashlytics, App Check kullanırsanız gerekir.
+- **Bundle ID / package name:** Yayına alırken kendi bundle ID’nizi (örn. `com.sirketiniz.collisionconnect`) kullanacaksanız, hem `capacitor.config.ts` içindeki `appId`’yi hem de Firebase’de kayıtlı iOS/Android uygulama bilgilerini bu değere göre güncellemeniz gerekir.
+- **gitignore:** `GoogleService-Info.plist` ve `google-services.json` genelde repoya eklenir; hassasiyete göre `.gitignore`’a ekleyip CI’da env ile üretebilirsiniz.
+
+### 7.4 Özet (mobil)
+
+- [ ] Firebase Console’da aynı projeye **iOS app** eklendi, **GoogleService-Info.plist** indirildi → `ios/App/App/GoogleService-Info.plist` konuldu.
+- [ ] Firebase Console’da aynı projeye **Android app** eklendi, **google-services.json** indirildi → `android/app/google-services.json` konuldu.
+- [ ] Gerekirse `capacitor.config.ts` içindeki `appId`, seçtiğiniz bundle ID / package name ile güncellendi.

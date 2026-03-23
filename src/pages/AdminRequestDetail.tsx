@@ -34,7 +34,7 @@ import { useNotifications } from "@/lib/notificationContext";
 import { getShopRequestById } from "@/lib/shopRequests";
 import { getRequestFromFirestore } from "@/lib/requestsFirestore";
 import { isRefId } from "@/lib/submittedRequestsStore";
-import { getBodyShopsNearZipAsync, normalizeWhatsAppPhone } from "@/lib/bodyShopsStore";
+import { getBodyShopsNearZipAsync, normalizeWhatsAppPhone, type AdminBodyShop, updateBodyShopAsync } from "@/lib/bodyShopsStore";
 import { getQuotesByRequestRefIdAsync } from "@/lib/quotesStore";
 import { getVisibleQuoteIdsAsync, setVisibleQuoteIdsAsync } from "@/lib/visibleQuotesStore";
 import { toast } from "sonner";
@@ -64,7 +64,10 @@ const AdminRequestDetail = () => {
   const [selectedQuoteIds, setSelectedQuoteIds] = useState<string[]>([]);
   const [quotes, setQuotes] = useState<Array<{ id: string; shopName: string; price: number; estimatedCompletion: string }>>([]);
   const [visibleQuoteIds, setVisibleQuoteIdsState] = useState<string[]>([]);
-  const [bodyShopsNearZip, setBodyShopsNearZip] = useState<Array<{ id: string; name: string; whatsappPhone: string; address?: string; email?: string }>>([]);
+  const [bodyShopsNearZip, setBodyShopsNearZip] = useState<AdminBodyShop[]>([]);
+  const [preferenceDialogShop, setPreferenceDialogShop] = useState<AdminBodyShop | null>(null);
+  const [pendingChannel, setPendingChannel] = useState<"whatsapp" | "sms" | "email" | null>(null);
+  const [selectedPreferredChannel, setSelectedPreferredChannel] = useState<"whatsapp" | "sms" | "email" | null>(null);
 
   const requestRefId = request ? ((request as { refId?: string }).refId ?? String((request as { id?: number }).id ?? "")) : "";
   const requestIdNum = request && typeof (request as { id?: number }).id === "number" ? (request as { id: number }).id : null;
@@ -241,7 +244,7 @@ const AdminRequestDetail = () => {
         {/* Send quote link to body shops near this request's zip */}
         {(() => {
           const baseUrl = (import.meta.env.VITE_APP_URL || (typeof window !== "undefined" ? window.location.origin : "") || "https://collisionconnect.netlify.app").replace(/\/$/, "");
-          const buildQuoteLink = (shop: { name: string; whatsappPhone: string; address?: string; email?: string }) => {
+          const buildQuoteLink = (shop: AdminBodyShop) => {
             if (!requestRefId) return baseUrl + "/quote/";
             const params = new URLSearchParams();
             if (shop.name) params.set("n", shop.name);
@@ -257,32 +260,82 @@ const AdminRequestDetail = () => {
           const quotePrompt = (t("adminQuoteLinkMessage") ?? "New quote request – please submit your price and turnaround time:\n").replace(/\n/g, "\n");
           const buildMessage = (link: string) => `${trustIntro}\n\n${quotePrompt}${link}`;
           const defaultMessage = buildMessage(quoteLink);
-          const openWhatsApp = (shop: { name: string; whatsappPhone: string; address?: string; email?: string }) => {
-            const num = normalizeWhatsAppPhone(shop.whatsappPhone);
-            if (!num) return;
-            const linkWithShop = buildQuoteLink(shop);
-            const msg = buildMessage(linkWithShop);
-            window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
+          const performOpen = (channel: "whatsapp" | "sms" | "email", shop: AdminBodyShop) => {
+            if (channel === "whatsapp") {
+              const num = normalizeWhatsAppPhone(shop.whatsappPhone);
+              if (!num) return;
+              const linkWithShop = buildQuoteLink(shop);
+              const msg = buildMessage(linkWithShop);
+              window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
+            } else if (channel === "sms") {
+              const num = normalizeWhatsAppPhone(shop.whatsappPhone);
+              if (!num) return;
+              const linkWithShop = buildQuoteLink(shop);
+              const msg = buildMessage(linkWithShop);
+              const smsUrl = `sms:+${num}?body=${encodeURIComponent(msg)}`;
+              window.open(smsUrl, "_blank", "noopener,noreferrer");
+            } else if (channel === "email") {
+              const email = (shop.email ?? "").trim();
+              if (!email) return;
+              const linkWithShop = buildQuoteLink(shop);
+              const msg = buildMessage(linkWithShop);
+              const subject = encodeURIComponent("Quote request – Fixly");
+              const body = encodeURIComponent(msg);
+              window.open(`mailto:${email}?subject=${subject}&body=${body}`, "_blank", "noopener,noreferrer");
+            }
           };
-          const openSms = (shop: { name: string; whatsappPhone: string; address?: string; email?: string }) => {
-            const num = normalizeWhatsAppPhone(shop.whatsappPhone);
-            if (!num) return;
-            const linkWithShop = buildQuoteLink(shop);
-            const msg = buildMessage(linkWithShop);
-            const smsUrl = `sms:+${num}?body=${encodeURIComponent(msg)}`;
-            window.open(smsUrl, "_blank", "noopener,noreferrer");
+
+          const ensurePreferenceAndOpen = (shop: AdminBodyShop, channel: "whatsapp" | "sms" | "email") => {
+            if (!shop.preferredChannel) {
+              setPreferenceDialogShop(shop);
+              setPendingChannel(channel);
+              setSelectedPreferredChannel(channel);
+              return;
+            }
+            performOpen(channel, shop);
           };
-          const openEmail = (shop: { name: string; whatsappPhone: string; address?: string; email?: string }) => {
-            const email = (shop.email ?? "").trim();
-            if (!email) return;
-            const linkWithShop = buildQuoteLink(shop);
-            const msg = buildMessage(linkWithShop);
-            const subject = encodeURIComponent("Quote request – Fixly");
-            const body = encodeURIComponent(msg);
-            window.open(`mailto:${email}?subject=${subject}&body=${body}`, "_blank", "noopener,noreferrer");
+
+          const openWhatsApp = (shop: AdminBodyShop) => {
+            ensurePreferenceAndOpen(shop, "whatsapp");
+          };
+          const openSms = (shop: AdminBodyShop) => {
+            ensurePreferenceAndOpen(shop, "sms");
+          };
+          const openEmail = (shop: AdminBodyShop) => {
+            ensurePreferenceAndOpen(shop, "email");
+          };
+
+          const handleSavePreferredChannel = async () => {
+            if (!preferenceDialogShop || !selectedPreferredChannel) {
+              setPreferenceDialogShop(null);
+              setPendingChannel(null);
+              return;
+            }
+            try {
+              const updated = await updateBodyShopAsync(preferenceDialogShop.id, {
+                preferredChannel: selectedPreferredChannel,
+              });
+              if (updated) {
+                setBodyShopsNearZip((prev) =>
+                  prev.map((s) => (s.id === updated.id ? updated : s))
+                );
+              }
+            } catch {
+              toast.error(t("adminPreferredChannelSaveFailed") ?? "Could not save preferred channel.");
+            }
+            const channelToUse = pendingChannel ?? selectedPreferredChannel;
+            const shopToUse =
+              preferenceDialogShop.preferredChannel === selectedPreferredChannel
+                ? preferenceDialogShop
+                : { ...preferenceDialogShop, preferredChannel: selectedPreferredChannel };
+            setPreferenceDialogShop(null);
+            setPendingChannel(null);
+            if (channelToUse) {
+              performOpen(channelToUse, shopToUse as AdminBodyShop);
+            }
           };
           const openAllTabs = () => {
-            bodyShops.forEach((s) => openWhatsApp(s));
+            bodyShops.forEach((s) => performOpen("whatsapp", s));
             if (bodyShops.length > 0) toast.success(t("adminQuoteLinkOpenedAll") ?? "Opened WhatsApp for each body shop. Send the message in each tab.");
           };
           return (
@@ -341,7 +394,20 @@ const AdminRequestDetail = () => {
                     <div className="space-y-2">
                       {bodyShops.map((shop) => (
                         <div key={shop.id} className="flex flex-wrap items-center gap-2 p-2 rounded-lg border border-border bg-muted/30">
-                          <span className="font-medium text-sm min-w-[120px]">{shop.name}</span>
+                          <div className="flex flex-col min-w-[120px] mr-2">
+                            <span className="font-medium text-sm">{shop.name}</span>
+                            {shop.preferredChannel && (
+                              <span className="text-[11px] text-muted-foreground">
+                                {(t("adminPreferredChannelLabel") ?? "Preferred channel") +
+                                  ": " +
+                                  (shop.preferredChannel === "whatsapp"
+                                    ? "WhatsApp"
+                                    : shop.preferredChannel === "sms"
+                                      ? "SMS"
+                                      : "Email")}
+                              </span>
+                            )}
+                          </div>
                           <div className="flex flex-wrap gap-1.5">
                             {normalizeWhatsAppPhone(shop.whatsappPhone) ? (
                               <>
@@ -390,6 +456,85 @@ const AdminRequestDetail = () => {
             </Card>
           );
         })()}
+
+        {preferenceDialogShop && (
+          <Dialog open={!!preferenceDialogShop} onOpenChange={(open) => { if (!open) { setPreferenceDialogShop(null); setPendingChannel(null); } }}>
+            <DialogContent className="max-w-sm">
+              <div className="space-y-4">
+                <h2 className="text-lg font-semibold">
+                  {t("adminPreferredChannelQuestion") ?? "How should this body shop receive future jobs?"}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {(t("adminPreferredChannelDescription") ??
+                    "You are about to send this request via WhatsApp/SMS/Email. Choose the default channel for future jobs for this body shop. This will be saved in the admin portal.") +
+                    ""}
+                </p>
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">
+                    {t("adminPreferredChannelLabel") ?? "Preferred channel"}
+                  </Label>
+                  <div className="flex flex-col gap-2">
+                    <button
+                      type="button"
+                      className={`px-3 py-2 rounded border text-sm text-left ${
+                        selectedPreferredChannel === "whatsapp"
+                          ? "border-accent bg-accent/10"
+                          : "border-border hover:bg-muted/50"
+                      }`}
+                      onClick={() => setSelectedPreferredChannel("whatsapp")}
+                    >
+                      WhatsApp
+                    </button>
+                    <button
+                      type="button"
+                      className={`px-3 py-2 rounded border text-sm text-left ${
+                        selectedPreferredChannel === "sms"
+                          ? "border-accent bg-accent/10"
+                          : "border-border hover:bg-muted/50"
+                      }`}
+                      onClick={() => setSelectedPreferredChannel("sms")}
+                    >
+                      SMS
+                    </button>
+                    <button
+                      type="button"
+                      className={`px-3 py-2 rounded border text-sm text-left ${
+                        selectedPreferredChannel === "email"
+                          ? "border-accent bg-accent/10"
+                          : "border-border hover:bg-muted/50"
+                      }`}
+                      onClick={() => setSelectedPreferredChannel("email")}
+                    >
+                      Email
+                    </button>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setPreferenceDialogShop(null);
+                      setPendingChannel(null);
+                    }}
+                  >
+                    {t("cancel") ?? "Cancel"}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="hero"
+                    onClick={handleSavePreferredChannel}
+                    disabled={!selectedPreferredChannel}
+                  >
+                    {t("save") ?? "Save"}
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
 
         {/* Body shop quotes – share which ones with customer */}
         <Card>

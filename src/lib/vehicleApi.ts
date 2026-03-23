@@ -4,6 +4,9 @@
  */
 
 const BASE = "https://vpic.nhtsa.dot.gov/api/vehicles";
+const VPIC_PROXY_URL =
+  (import.meta.env.VITE_VPIC_PROXY_URL as string | undefined) ||
+  `${(import.meta.env.VITE_APP_URL || "https://collisionconnect.netlify.app").replace(/\/$/, "")}/.netlify/functions/vpic-proxy`;
 
 export type VinDecodeResult = {
   make: string;
@@ -21,7 +24,7 @@ export async function decodeVin(vin: string): Promise<VinDecodeResult | null> {
   if (raw.length < 8) return null;
   const url = `${BASE}/DecodeVinValues/${encodeURIComponent(raw)}?format=json`;
   try {
-    const res = await fetch(url, { headers: { Accept: "application/json" } });
+    const res = await fetchVpicJson(url);
     if (!res.ok) return null;
     const json = (await res.json()) as { Results?: Array<Record<string, string>> };
     const r = json.Results?.[0];
@@ -65,7 +68,7 @@ export async function getAllMakes(): Promise<MakeItem[]> {
   for (const vehicleType of types) {
     try {
       const url = `${BASE}/GetMakesForVehicleType/${vehicleType}?format=json`;
-      const res = await fetch(url, { headers: { Accept: "application/json" } });
+      const res = await fetchVpicJson(url);
       if (!res.ok) continue;
       const json = (await res.json()) as {
         Results?: Array<{ MakeId: number; MakeName: string }>;
@@ -90,7 +93,7 @@ export async function getModelsForMake(make: string): Promise<ModelItem[]> {
   if (!slug) return [];
   const url = `${BASE}/GetModelsForMake/${encodeURIComponent(slug)}?format=json`;
   try {
-    const res = await fetch(url, { headers: { Accept: "application/json" } });
+    const res = await fetchVpicJson(url);
     if (!res.ok) return [];
     const json = (await res.json()) as {
       Results?: Array<{ Model_ID: number; Model_Name: string }>;
@@ -108,7 +111,7 @@ export async function getModelsForMakeYear(make: string, year: string): Promise<
   if (!makeSlug || !yearNum) return [];
   const url = `${BASE}/GetModelsForMakeYear/make/${encodeURIComponent(makeSlug)}/modelyear/${yearNum}?format=json`;
   try {
-    const res = await fetch(url, { headers: { Accept: "application/json" } });
+    const res = await fetchVpicJson(url);
     if (!res.ok) return [];
     const json = (await res.json()) as {
       Results?: Array<{ Model_ID: number; Model_Name: string }>;
@@ -117,4 +120,18 @@ export async function getModelsForMakeYear(make: string, year: string): Promise<
   } catch {
     return [];
   }
+}
+
+async function fetchVpicJson(vpicUrl: string): Promise<Response> {
+  if (VPIC_PROXY_URL) {
+    const proxyUrl = `${VPIC_PROXY_URL}?url=${encodeURIComponent(vpicUrl)}`;
+    const res = await fetch(proxyUrl, { headers: { Accept: "application/json" } });
+    const ct = res.headers.get("content-type") || "";
+    if (ct.includes("application/json")) return res;
+  }
+
+  // Fallback: public raw proxy (avoids iOS WebView CORS)
+  // This is intended as a development safety net until the proper proxy is deployed.
+  const allOrigins = `https://api.allorigins.win/raw?url=${encodeURIComponent(vpicUrl)}`;
+  return fetch(allOrigins, { headers: { Accept: "application/json" } });
 }

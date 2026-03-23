@@ -8,7 +8,7 @@ const CTASection = () => {
   const { t } = useLanguage();
 
   return (
-    <section className="py-24 gradient-hero">
+    <section className="py-12 md:py-24 gradient-hero">
       <div className="container mx-auto px-4">
         <div className="max-w-xl mx-auto">
           <div className="bg-card/10 backdrop-blur-sm rounded-3xl p-8 md:p-12 border border-primary-foreground/10 text-center">

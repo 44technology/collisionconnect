@@ -17,15 +17,17 @@ import {
 } from "@/lib/submittedRequestsStore";
 import { saveRequestToFirestore } from "@/lib/requestsFirestore";
 import { uploadRequestImages } from "@/lib/requestImagesStorage";
-import { isFirebaseEnabled } from "@/lib/firebase";
+import { auth, isFirebaseEnabled } from "@/lib/firebase";
 import { decodeVin, getAllMakes, getModelsForMake, type MakeItem, type ModelItem } from "@/lib/vehicleApi";
+import { fetchSignInMethodsForEmail } from "firebase/auth";
 
 const NewRequest = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useLanguage();
-  const { registerCustomer, login } = useAuth();
-  const isGuestFlow = location.pathname === "/request/new";
+  const { registerCustomer, login, loginWithEmailAndPassword, signInWithGoogle, signInWithApple, user } = useAuth();
+  const isGuestFlow = location.pathname === "/request/new" && !user;
+  const [guestAuthMode, setGuestAuthMode] = useState<"register" | "login">("register");
 
   const [formData, setFormData] = useState({
     make: "",
@@ -42,10 +44,16 @@ const NewRequest = () => {
   const [imagesBySlot, setImagesBySlot] = useState<Record<string, SlotImage>>({});
   const [account, setAccount] = useState({ fullName: "", email: "", password: "", confirmPassword: "" });
   const [submitting, setSubmitting] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState<"google" | "apple" | null>(null);
   const [vinDecoding, setVinDecoding] = useState(false);
   const [makes, setMakes] = useState<MakeItem[]>([]);
   const [models, setModels] = useState<ModelItem[]>([]);
   const [modelsLoading, setModelsLoading] = useState(false);
+
+  useEffect(() => {
+    // Kullanıcı yokken guest akışa girince register adımıyla başlayalım.
+    if (isGuestFlow) setGuestAuthMode("register");
+  }, [isGuestFlow]);
 
   const updateField = (field: string, value: string) => {
     setFormData((prev) => {
@@ -134,38 +142,75 @@ const NewRequest = () => {
     }
 
     if (isGuestFlow) {
-      const { fullName, email: accountEmail, password, confirmPassword } = account;
-      if (!fullName.trim()) {
-        toast.error(t("fullName") + " — " + (t("enterName") ?? "Required"));
-        return;
-      }
-      if (!accountEmail.trim()) {
+      const fullName = account.fullName;
+      const accountEmail = account.email.trim();
+      const password = account.password;
+      const confirmPassword = account.confirmPassword;
+
+      if (!accountEmail) {
         toast.error(t("enterEmail"));
         return;
       }
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(accountEmail.trim())) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(accountEmail)) {
         toast.error(t("invalidEmail"));
-        return;
-      }
-      if (password.length < 6) {
-        toast.error(t("passwordMinLength"));
-        return;
-      }
-      if (password !== confirmPassword) {
-        toast.error(t("passwordsDoNotMatch"));
         return;
       }
 
       setSubmitting(true);
       try {
         if (isFirebaseEnabled()) {
-          await registerCustomer({
-            email: accountEmail.trim(),
-            password,
-            name: fullName.trim(),
-          });
+          if (guestAuthMode === "register") {
+            if (!fullName.trim()) {
+              toast.error(t("fullName") + " — " + (t("enterName") ?? "Required"));
+              setSubmitting(false);
+              return;
+            }
+            if (password.length < 6) {
+              toast.error(t("passwordMinLength"));
+              setSubmitting(false);
+              return;
+            }
+            if (password !== confirmPassword) {
+              toast.error(t("passwordsDoNotMatch"));
+              setSubmitting(false);
+              return;
+            }
+
+            // Email daha önce kayıtlıysa, register yerine login adımına geçiyoruz.
+            const methods = auth ? await fetchSignInMethodsForEmail(auth, accountEmail) : [];
+            if (methods.length > 0) {
+              setGuestAuthMode("login");
+              toast.info(t("alreadyHaveAccount") ?? "Account exists. Please sign in.");
+              setSubmitting(false);
+              return;
+            }
+
+            await registerCustomer({
+              email: accountEmail,
+              password,
+              name: fullName.trim(),
+            });
+          } else {
+            if (password.length < 6) {
+              toast.error(t("passwordMinLength"));
+              setSubmitting(false);
+              return;
+            }
+            await loginWithEmailAndPassword(accountEmail, password);
+          }
         } else {
-          login("customer", fullName.trim());
+          // Firebase kapalıyken mock akış: sadece customer olarak giriş yapıyoruz.
+          if (guestAuthMode === "register") {
+            if (!fullName.trim()) {
+              toast.error(t("fullName") + " — " + (t("enterName") ?? "Required"));
+              setSubmitting(false);
+              return;
+            }
+            login("customer", fullName.trim());
+          } else {
+            // Mock’ta login modu pratikte register ile aynı davranır.
+            login("customer", fullName.trim() || "Customer");
+          }
         }
       } catch (err: unknown) {
         const msg = err && typeof err === "object" && "message" in err ? (err as { message?: string }).message : String(err);
@@ -213,11 +258,9 @@ const NewRequest = () => {
         imageLabels,
       });
       const fullRequest = getSubmittedRequestByRefId(refId);
-      if (fullRequest) {
-        saveRequestToFirestore(fullRequest).catch(() => {});
-      }
+      if (fullRequest) saveRequestToFirestore(fullRequest).catch(() => {});
       toast.success(t("requestSubmittedSuccess"));
-      navigate(`/request/submitted?ref=${encodeURIComponent(refId)}&email=${encodeURIComponent(accountEmail.trim())}`);
+      navigate(`/request/submitted?ref=${encodeURIComponent(refId)}&email=${encodeURIComponent(accountEmail)}`);
       setSubmitting(false);
       return;
     }
@@ -599,71 +642,169 @@ const NewRequest = () => {
           </Card>
           )}
 
-          {/* Create account – guest flow: register before submit */}
+          {/* Auth step — guest flow: submit sırasında register yerine login adımına geçer */}
           {isGuestFlow && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="w-5 h-5 text-accent" />
-                {t("createAccount")}
-              </CardTitle>
-              <CardDescription>
-                {t("yourEmailDescription")}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="request-name">{t("fullName")}</Label>
-                <Input
-                  id="request-name"
-                  type="text"
-                  placeholder="John Doe"
-                  value={account.fullName}
-                  onChange={(e) => setAccount((a) => ({ ...a, fullName: e.target.value }))}
-                  className="mt-2"
-                />
-              </div>
-              <div>
-                <Label htmlFor="request-email">{t("email")}</Label>
-                <Input
-                  id="request-email"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={account.email}
-                  onChange={(e) => setAccount((a) => ({ ...a, email: e.target.value }))}
-                  className="mt-2"
-                />
-              </div>
-              <div>
-                <Label htmlFor="request-password">{t("password")}</Label>
-                <Input
-                  id="request-password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={account.password}
-                  onChange={(e) => setAccount((a) => ({ ...a, password: e.target.value }))}
-                  className="mt-2"
-                />
-              </div>
-              <div>
-                <Label htmlFor="request-confirm">{t("confirmPassword")}</Label>
-                <Input
-                  id="request-confirm"
-                  type="password"
-                  placeholder="••••••••"
-                  value={account.confirmPassword}
-                  onChange={(e) => setAccount((a) => ({ ...a, confirmPassword: e.target.value }))}
-                  className="mt-2"
-                />
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {t("alreadyHaveAccount") ?? "Already have an account?"}{" "}
-                <Link to="/login" className="text-accent font-medium hover:underline">
-                  {t("signIn")}
-                </Link>
-              </p>
-            </CardContent>
-          </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <User className="w-5 h-5 text-accent" />
+                  {guestAuthMode === "register" ? t("createAccount") : t("signIn")}
+                </CardTitle>
+                <CardDescription>
+                  {guestAuthMode === "register"
+                    ? t("yourEmailDescription")
+                    : "Account exists. Please sign in to continue."}
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent className="space-y-4">
+                {guestAuthMode === "register" && (
+                  <>
+                    <div>
+                      <Label htmlFor="request-name">{t("fullName")}</Label>
+                      <Input
+                        id="request-name"
+                        type="text"
+                        placeholder="John Doe"
+                        value={account.fullName}
+                        onChange={(e) => setAccount((a) => ({ ...a, fullName: e.target.value }))}
+                        className="mt-2"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="request-email">{t("email")}</Label>
+                      <Input
+                        id="request-email"
+                        type="email"
+                        placeholder="you@example.com"
+                        value={account.email}
+                        onChange={(e) => setAccount((a) => ({ ...a, email: e.target.value }))}
+                        className="mt-2"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="request-password">{t("password")}</Label>
+                      <Input
+                        id="request-password"
+                        type="password"
+                        placeholder="••••••••"
+                        value={account.password}
+                        onChange={(e) => setAccount((a) => ({ ...a, password: e.target.value }))}
+                        className="mt-2"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="request-confirm">{t("confirmPassword")}</Label>
+                      <Input
+                        id="request-confirm"
+                        type="password"
+                        placeholder="••••••••••"
+                        value={account.confirmPassword}
+                        onChange={(e) => setAccount((a) => ({ ...a, confirmPassword: e.target.value }))}
+                        className="mt-2"
+                      />
+                    </div>
+
+                    <p className="text-sm text-muted-foreground">
+                      {t("alreadyHaveAccount") ?? "Already have an account?"}{" "}
+                      <button
+                        type="button"
+                        className="text-accent font-medium hover:underline"
+                        onClick={() => setGuestAuthMode("login")}
+                      >
+                        {t("signIn")}
+                      </button>
+                    </p>
+                  </>
+                )}
+
+                {guestAuthMode === "login" && (
+                  <>
+                    <div>
+                      <Label htmlFor="request-email">{t("email")}</Label>
+                      <Input
+                        id="request-email"
+                        type="email"
+                        placeholder="you@example.com"
+                        value={account.email}
+                        onChange={(e) => setAccount((a) => ({ ...a, email: e.target.value }))}
+                        className="mt-2"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="request-password">{t("password")}</Label>
+                      <Input
+                        id="request-password"
+                        type="password"
+                        placeholder="••••••••"
+                        value={account.password}
+                        onChange={(e) => setAccount((a) => ({ ...a, password: e.target.value }))}
+                        className="mt-2"
+                      />
+                    </div>
+
+                    {isFirebaseEnabled() && (
+                      <div className="space-y-3 pt-2">
+                        <div className="text-center text-xs text-muted-foreground">or continue with</div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full"
+                          size="lg"
+                          disabled={!!oauthLoading || submitting}
+                          onClick={async () => {
+                            try {
+                              setOauthLoading("google");
+                              await signInWithGoogle();
+                            } catch (err: unknown) {
+                              const msg = err instanceof Error ? err.message : String(err);
+                              toast.error(msg);
+                              setOauthLoading(null);
+                            }
+                          }}
+                        >
+                          Continue with Google
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full"
+                          size="lg"
+                          disabled={!!oauthLoading || submitting}
+                          onClick={async () => {
+                            try {
+                              setOauthLoading("apple");
+                              await signInWithApple();
+                            } catch (err: unknown) {
+                              const msg = err instanceof Error ? err.message : String(err);
+                              toast.error(msg);
+                              setOauthLoading(null);
+                            }
+                          }}
+                        >
+                          Continue with Apple
+                        </Button>
+                      </div>
+                    )}
+
+                    <p className="text-sm text-muted-foreground">
+                      New here?{" "}
+                      <button
+                        type="button"
+                        className="text-accent font-medium hover:underline"
+                        onClick={() => setGuestAuthMode("register")}
+                      >
+                        {t("createAccount")}
+                      </button>
+                    </p>
+                  </>
+                )}
+              </CardContent>
+            </Card>
           )}
 
           {/* Submit */}

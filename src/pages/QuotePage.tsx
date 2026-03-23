@@ -209,16 +209,13 @@ const QuotePage = () => {
               {t("backToHome")}
             </Link>
             <div className="flex items-center gap-2">
-              <div className="w-9 h-9 overflow-hidden rounded-lg bg-white flex items-center justify-center">
+              <div className="w-14 h-14 overflow-hidden rounded-2xl bg-white flex items-center justify-center">
                 <img
-                  src="/fixly-logo.png"
+                  src="/fixy-logo.png"
                   alt="Fixly"
-                  className="w-full h-full object-contain"
+                  className="w-full h-full object-cover object-left scale-[1.5]"
                 />
               </div>
-              <span className="font-display font-bold text-foreground">
-                Fixly
-              </span>
             </div>
           </div>
         </div>

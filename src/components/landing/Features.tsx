@@ -13,9 +13,9 @@ const featureKeys = [
 const Features = () => {
   const { t } = useLanguage();
   return (
-    <section className="py-24 bg-muted/20">
+    <section className="py-12 md:py-24 bg-muted/20">
       <div className="container mx-auto px-4">
-        <div className="text-center mb-16">
+        <div className="text-center mb-10 md:mb-16">
           <span className="inline-block text-accent font-semibold mb-4">
             {t("featuresLabel")}
           </span>

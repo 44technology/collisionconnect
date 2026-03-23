@@ -14,9 +14,10 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState<"google" | "apple" | null>(null);
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const { login, loginWithEmailAndPassword } = useAuth();
+  const { login, loginWithEmailAndPassword, signInWithGoogle, signInWithApple } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,6 +116,50 @@ const Login = () => {
               <Button type="submit" variant="hero" className="w-full" size="lg" disabled={submitting}>
                 {submitting ? (t("signingIn") ?? "Signing in...") : t("signIn")}
               </Button>
+
+              {isFirebaseEnabled() && (
+                <div className="space-y-3 mt-4">
+                  <div className="text-center text-xs text-muted-foreground">or continue with</div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    size="lg"
+                    disabled={!!oauthLoading || submitting}
+                    onClick={async () => {
+                      try {
+                        setOauthLoading("google");
+                        await signInWithGoogle();
+                      } catch (err: unknown) {
+                        const msg = err instanceof Error ? err.message : String(err);
+                        toast.error(msg);
+                        setOauthLoading(null);
+                      }
+                    }}
+                  >
+                    Continue with Google
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    size="lg"
+                    disabled={!!oauthLoading || submitting}
+                    onClick={async () => {
+                      try {
+                        setOauthLoading("apple");
+                        await signInWithApple();
+                      } catch (err: unknown) {
+                        const msg = err instanceof Error ? err.message : String(err);
+                        toast.error(msg);
+                        setOauthLoading(null);
+                      }
+                    }}
+                  >
+                    Continue with Apple
+                  </Button>
+                </div>
+              )}
             </form>
 
             <div className="mt-6 text-center text-sm">

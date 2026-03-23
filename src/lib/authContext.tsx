@@ -4,6 +4,9 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
+  signInWithRedirect,
+  GoogleAuthProvider,
+  OAuthProvider,
   type User as FirebaseUser,
 } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
@@ -36,6 +39,10 @@ type AuthContextValue = {
   login: (userType: UserType, name?: string) => void;
   logout: () => void;
   isAdmin: boolean;
+  /** Google ile (customer) giriş başlatır. */
+  signInWithGoogle: () => Promise<void>;
+  /** Apple ile (customer) giriş başlatır. */
+  signInWithApple: () => Promise<void>;
   /** Müşteri kaydı (Firebase). */
   registerCustomer: (params: { email: string; password: string; name: string; phone?: string }) => Promise<void>;
   /** Body shop kaydı (Firebase). */
@@ -89,7 +96,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       return;
     }
-    const unsub = onAuthStateChanged(auth, async (fbUser: FirebaseUser | null) => {
+    let didSettle = false;
+    const fallbackTimer = window.setTimeout(() => {
+      if (didSettle) return;
+      // Firebase dinlemesi beklenenden uzun sürerse siyah ekrana düşmemek için fallback.
+      // eslint-disable-next-line no-console
+      console.error("AuthLoadingGuard fallback: onAuthStateChanged did not settle in time");
+      didSettle = true;
+      setUser(null);
+      setLoading(false);
+    }, 10000);
+
+    let unsub: (() => void) | undefined;
+    try {
+      unsub = onAuthStateChanged(auth, async (fbUser: FirebaseUser | null) => {
+        if (didSettle) return;
+        // Callback tetiklendi: fallback'i kapatacağız.
+        didSettle = true;
+        window.clearTimeout(fallbackTimer);
       if (!fbUser) {
         setUser(null);
         setLoading(false);
@@ -99,8 +123,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const userRef = doc(db, USERS_COLLECTION, fbUser.uid);
         const userSnap = await getDoc(userRef);
         const userData = userSnap.exists() ? userSnap.data() : null;
+        const oauthProviders = fbUser.providerData.map((p) => p.providerId);
+        const isOAuthCustomer = oauthProviders.includes("google.com") || oauthProviders.includes("apple.com");
+
         const userType = userData?.userType as UserProfile["userType"] | undefined;
-        let profile: UserProfile | null = userData ? { ...userData, userType } as UserProfile : null;
+        let profile: UserProfile | null = userData && userType ? { ...userData, userType } as UserProfile : null;
+
         if (profile?.userType === "customer") {
           const custSnap = await getDoc(doc(db, CUSTOMERS_COLLECTION, fbUser.uid));
           if (custSnap.exists()) {
@@ -113,6 +141,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const d = adminSnap.data();
             profile = { ...profile, displayName: d.displayName ?? profile.displayName, email: d.email ?? profile.email };
           }
+        } else if (!profile && isOAuthCustomer && fbUser.email) {
+          // OAuth ile girişte kullanıcı dokümanları yoksa customer olarak otomatik oluşturuyoruz.
+          const displayName = fbUser.displayName ?? "Customer";
+          const email = fbUser.email;
+
+          await setDoc(doc(db, USERS_COLLECTION, fbUser.uid), { userType: "customer", email });
+          await setDoc(doc(db, CUSTOMERS_COLLECTION, fbUser.uid), {
+            displayName,
+            email,
+            phone: null,
+            createdAt: new Date().toISOString(),
+          });
+
+          profile = { userType: "customer", displayName, email, phone: null };
         }
         setUser(profileToAuthState(fbUser.uid, profile));
       } catch {
@@ -120,8 +162,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } finally {
         setLoading(false);
       }
-    });
-    return () => unsub();
+      });
+    } catch (err) {
+      window.clearTimeout(fallbackTimer);
+      // eslint-disable-next-line no-console
+      console.error("onAuthStateChanged init error:", err);
+      setUser(null);
+      setLoading(false);
+    }
+
+    return () => {
+      window.clearTimeout(fallbackTimer);
+      if (unsub) unsub();
+    };
   }, []);
 
   // Mock: localStorage senkron
@@ -188,6 +241,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await signOut(auth);
     }
     setUser(null);
+  }, []);
+
+  const signInWithGoogle = useCallback(async () => {
+    if (!auth) throw new Error("Firebase is not configured");
+    const provider = new GoogleAuthProvider();
+    await signInWithRedirect(auth, provider);
+  }, []);
+
+  const signInWithApple = useCallback(async () => {
+    if (!auth) throw new Error("Firebase is not configured");
+    const provider = new OAuthProvider("apple.com");
+    provider.addScope("email");
+    provider.addScope("name");
+    await signInWithRedirect(auth, provider);
   }, []);
 
   const registerCustomer = useCallback(
@@ -257,6 +324,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     login,
     logout,
     isAdmin,
+    signInWithGoogle,
+    signInWithApple,
     registerCustomer,
     registerShop,
   };

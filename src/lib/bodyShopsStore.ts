@@ -20,6 +20,8 @@ export type AdminBodyShop = {
   address?: string;
   /** Contact email. */
   email?: string;
+  /** Preferred channel for future jobs (set once when first sending quote link). */
+  preferredChannel?: "whatsapp" | "sms" | "email";
   createdAt: string;
 };
 
@@ -98,6 +100,7 @@ export function addBodyShop(data: {
   zipCode?: string;
   address?: string;
   email?: string;
+  preferredChannel?: "whatsapp" | "sms" | "email";
 }): AdminBodyShop {
   const item: AdminBodyShop = {
     id: nextId(),
@@ -106,6 +109,7 @@ export function addBodyShop(data: {
     zipCode: (data.zipCode ?? "").trim().replace(/\D/g, "").slice(0, 5) || undefined,
     address: (data.address ?? "").trim() || undefined,
     email: (data.email ?? "").trim() || undefined,
+    preferredChannel: data.preferredChannel,
     createdAt: new Date().toISOString(),
   };
   const list = load();
@@ -121,6 +125,7 @@ export async function addBodyShopAsync(data: {
   zipCode?: string;
   address?: string;
   email?: string;
+  preferredChannel?: "whatsapp" | "sms" | "email";
 }): Promise<AdminBodyShop> {
   if (isFirebaseEnabled()) {
     const created = await addBodyShopToFirestore(data);
@@ -134,7 +139,14 @@ export async function addBodyShopAsync(data: {
 
 export function updateBodyShop(
   id: string,
-  data: { name?: string; whatsappPhone?: string; zipCode?: string; address?: string; email?: string }
+  data: {
+    name?: string;
+    whatsappPhone?: string;
+    zipCode?: string;
+    address?: string;
+    email?: string;
+    preferredChannel?: "whatsapp" | "sms" | "email" | null;
+  }
 ): AdminBodyShop | null {
   const list = load();
   const idx = list.findIndex((x) => x.id === id);
@@ -147,6 +159,9 @@ export function updateBodyShop(
   }
   if (data.address !== undefined) list[idx].address = (data.address ?? "").trim() || undefined;
   if (data.email !== undefined) list[idx].email = (data.email ?? "").trim() || undefined;
+  if (data.preferredChannel !== undefined) {
+    list[idx].preferredChannel = data.preferredChannel ?? undefined;
+  }
   save(list);
   return list[idx];
 }
@@ -154,7 +169,14 @@ export function updateBodyShop(
 /** Async: Firestore when enabled. */
 export async function updateBodyShopAsync(
   id: string,
-  data: { name?: string; whatsappPhone?: string; zipCode?: string; address?: string; email?: string }
+  data: {
+    name?: string;
+    whatsappPhone?: string;
+    zipCode?: string;
+    address?: string;
+    email?: string;
+    preferredChannel?: "whatsapp" | "sms" | "email" | null;
+  }
 ): Promise<AdminBodyShop | null> {
   if (isFirebaseEnabled()) {
     const updated = await updateBodyShopInFirestore(id, data);

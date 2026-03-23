@@ -2,10 +2,12 @@ import { Button } from "@/components/ui/button";
 import { Car, Shield, DollarSign, ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/lib/LanguageContext";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const HeroSection = () => {
   const navigate = useNavigate();
   const { t, locale, setLocale } = useLanguage();
+  const isMobile = useIsMobile();
 
   return (
     <section className="relative min-h-screen gradient-hero overflow-hidden">
@@ -15,25 +17,22 @@ const HeroSection = () => {
         <div className="absolute top-1/2 -left-20 w-60 h-60 bg-accent/5 rounded-full blur-3xl" />
       </div>
 
-      <div className="container relative z-10 mx-auto px-4 pt-20 pb-16">
+        <div className="container relative z-10 mx-auto px-4 pt-14 pb-24 md:pt-20 md:pb-16">
         {/* Navigation */}
-        <nav className="flex items-center justify-between mb-16">
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 overflow-hidden rounded-xl bg-white flex items-center justify-center">
+        <nav className="flex items-center justify-between mb-10 md:mb-16">
+            <div className="flex items-center gap-2">
+            <div className="w-14 h-14 overflow-hidden rounded-2xl bg-white flex items-center justify-center">
               <img
-                src="/fixly-logo.png"
+                src="/fixy-logo.png"
                 alt="Fixly"
-                className="w-full h-full object-contain"
+                className="w-full h-full object-cover object-left scale-[1.5]"
               />
             </div>
-            <span className="text-xl font-display font-bold text-primary-foreground">
-              Fixly
-            </span>
           </div>
           
           <div className="flex items-center gap-4">
             {/* Language switcher */}
-            <div className="flex items-center gap-1 rounded-lg bg-primary-foreground/10 p-1">
+            <div className="hidden md:flex items-center gap-1 rounded-lg bg-primary-foreground/10 p-1">
               <button
                 type="button"
                 onClick={() => setLocale("en")}
@@ -49,10 +48,11 @@ const HeroSection = () => {
                 ES
               </button>
             </div>
-            <Button 
+            <Button
               variant="hero" 
               size="sm"
               onClick={() => navigate("/request/new")}
+              className="hidden md:inline-flex"
             >
               {t("getAQuote")}
             </Button>
@@ -78,19 +78,19 @@ const HeroSection = () => {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4">
-              <Button 
-                variant="hero" 
+              <Button
+                variant="hero"
                 size="xl"
                 onClick={() => navigate("/request/new")}
-                className="group"
+                className="hidden md:inline-flex group"
               >
                 {t("getStartedPhotos")}
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Button>
-              </div>
+            </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-8 mt-12 pt-12 border-t border-primary-foreground/10">
+            <div className="grid grid-cols-3 gap-8 mt-10 md:mt-12 md:pt-12 md:border-t md:border-primary-foreground/10">
               <div>
                 <div className="text-3xl font-display font-bold text-accent">500+</div>
                 <div className="text-sm text-primary-foreground/60">{t("statsShops")}</div>
@@ -140,6 +140,21 @@ const HeroSection = () => {
             </div>
           </div>
         </div>
+
+        {/* Mobile sticky CTA */}
+        {isMobile && (
+          <div className="fixed left-0 right-0 bottom-0 z-40 p-4 pb-6 md:hidden">
+            <Button
+              variant="hero"
+              size="xl"
+              className="w-full justify-center"
+              onClick={() => navigate("/request/new")}
+            >
+              {t("getStartedPhotos")}
+              <ArrowRight className="w-5 h-5 ml-2" />
+            </Button>
+          </div>
+        )}
       </div>
     </section>
   );

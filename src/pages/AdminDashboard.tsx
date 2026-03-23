@@ -61,17 +61,14 @@ const AdminDashboard = () => {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-10 h-10 overflow-hidden rounded-xl bg-white flex items-center justify-center">
+              <div className="w-14 h-14 overflow-hidden rounded-2xl bg-white flex items-center justify-center">
                 <img
-                  src="/fixly-logo.png"
+                  src="/fixy-logo.png"
                   alt="Fixly"
-                  className="w-full h-full object-contain"
+                  className="w-full h-full object-cover object-left scale-[1.5]"
                 />
               </div>
-              <span className="text-xl font-display font-bold">
-                Fixly
-                <span className="text-sm font-normal text-muted-foreground ml-2">{t("admin")}</span>
-              </span>
+              <span className="text-sm font-normal text-muted-foreground ml-1">{t("admin")}</span>
             </div>
             <Button variant="ghost" size="sm" onClick={() => navigate("/settings")}>
               <Settings className="w-4 h-4 mr-2" />

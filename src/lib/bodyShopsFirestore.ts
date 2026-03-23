@@ -15,6 +15,10 @@ function toItem(id: string, data: Record<string, unknown>): AdminBodyShop {
     zipCode: data.zipCode != null && data.zipCode !== "" ? String(data.zipCode) : undefined,
     address: data.address != null && data.address !== "" ? String(data.address) : undefined,
     email: data.email != null && data.email !== "" ? String(data.email) : undefined,
+    preferredChannel:
+      data.preferredChannel === "whatsapp" || data.preferredChannel === "sms" || data.preferredChannel === "email"
+        ? (data.preferredChannel as "whatsapp" | "sms" | "email")
+        : undefined,
     createdAt: data.createdAt?.toDate?.()?.toISOString?.() ?? String(data.createdAt ?? ""),
   };
 }
@@ -38,6 +42,7 @@ export async function addBodyShopToFirestore(data: {
   zipCode?: string;
   address?: string;
   email?: string;
+  preferredChannel?: "whatsapp" | "sms" | "email";
 }): Promise<AdminBodyShop> {
   if (!isFirebaseEnabled() || !db) throw new Error("Firebase not enabled");
   const ref = await addDoc(collection(db, COLLECTION), {
@@ -46,6 +51,7 @@ export async function addBodyShopToFirestore(data: {
     zipCode: (data.zipCode ?? "").trim().replace(/\D/g, "").slice(0, 5) || null,
     address: (data.address ?? "").trim() || null,
     email: (data.email ?? "").trim() || null,
+    preferredChannel: data.preferredChannel ?? null,
     createdAt: serverTimestamp(),
   });
   const snap = await getDoc(ref);
@@ -55,7 +61,14 @@ export async function addBodyShopToFirestore(data: {
 
 export async function updateBodyShopInFirestore(
   id: string,
-  data: { name?: string; whatsappPhone?: string; zipCode?: string; address?: string; email?: string }
+  data: {
+    name?: string;
+    whatsappPhone?: string;
+    zipCode?: string;
+    address?: string;
+    email?: string;
+    preferredChannel?: "whatsapp" | "sms" | "email" | null;
+  }
 ): Promise<AdminBodyShop | null> {
   if (!isFirebaseEnabled() || !db) return null;
   try {
@@ -69,6 +82,7 @@ export async function updateBodyShopInFirestore(
     }
     if (data.address !== undefined) updates.address = (data.address ?? "").trim() || null;
     if (data.email !== undefined) updates.email = (data.email ?? "").trim() || null;
+    if (data.preferredChannel !== undefined) updates.preferredChannel = data.preferredChannel ?? null;
     await updateDoc(ref, updates);
     const snap = await getDoc(ref);
     return snap.exists() ? toItem(snap.id, snap.data()) : null;
