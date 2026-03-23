@@ -28,7 +28,7 @@ Amaç: Önce **kaza fotoğrafları + araç/hasar bilgisi** gitsin (link yok veya
 
 ### Aşama 1 — Sadece içerik (foto + bilgi)
 
-Sıra önerisi (Cloud API / n8n döngüsü):
+Sıra önerisi (WhatsApp Cloud API; gönderim **Netlify veya Firebase function** içinde döngü ile):
 
 1. **Kısa giriş metni** (tek mesaj):  
    *“Fixly: doğrulanmış bir tamir talebi. Aşağıda araç ve hasar fotoğrafları ile özet bilgiler yer alıyor.”*
@@ -57,7 +57,7 @@ Etkileşim seçenekleri (hangisi kolayınıza gelirse):
 
 ### Aşama 3 — Sadece “Evet” sonrası price / quote linki
 
-- **Webhook** (Meta → n8n veya kendi API): gelen mesajı normalize et (`evet`, `EVET`, emoji vb.).
+- **Webhook** (Meta → **Netlify/Firebase function**): gelen mesajı normalize et (`evet`, `EVET`, emoji vb.).
 - Eşleşirse **bir kez** şu mesajı gönder:
   - Kısa açıklama + **hash’li quote URL** (mevcut: `https://<site>/#/quote/<refId>?n=...&p=...` shop parametreleri ile).
 - Body shop **Quote sayfasında** fiyat + süre doldurur → uygulama zaten **`addQuoteAsync` / Firestore `quote`** ile kaydeder.
@@ -67,7 +67,7 @@ Etkileşim seçenekleri (hangisi kolayınıza gelirse):
 
 ### Durum takibi (öneri)
 
-Çift gönderimi önlemek ve rapor için (Firestore veya n8n DB):
+Çift gönderimi önlemek ve rapor için (Firestore):
 
 - `outreachSessions/{refId}_{normalizedPhone}`: `phase: 1|2|3`, `consentAt`, `quoteLinkSentAt`.
 
@@ -107,33 +107,20 @@ Etkileşim seçenekleri (hangisi kolayınıza gelirse):
 
 ---
 
-## 6. n8n ile otomasyon (alternatif mimari)
+## 6. Backend’de uygulama özeti (n8n yok)
 
-**Evet —** WhatsApp tarafı yine **WhatsApp Cloud API** (veya Twilio WhatsApp gibi bir sağlayıcı) gerektirir; n8n bunun **üstünde** iş akışını yönetir.
+Otomasyon **doğrudan bu repodaki sunucu tarafı** ile yapılır: **Netlify Functions** ve/veya **Firebase Cloud Functions**. n8n kullanılmıyor.
 
-**Artıları**
+**Giden mesajlar (admin tetikler)**
 
-- Görsel akış: “tetikle → veriyi çek → foto gönder → metin gönder → hata yakala / tekrar dene”.
-- Cron, kuyruk, Slack uyarısı, A/B metin gibi şeyleri koda gömmeden eklenebilir.
-- Fixly uygulamasında sadece **tek bir webhook** kalabilir: örn. admin “Gönder” → `POST https://n8n.sizin-domain.com/webhook/quote-broadcast` + `refId` + shop listesi veya secret token.
+1. `POST /.netlify/functions/...` (veya Firebase callable): body’de `refId`, hedef telefon listesi, isteğe bağlı shop parametreleri.
+2. Function: Firestore `requests/{refId}` + Storage URL’lerini okur → her numara için Graph API sırasıyla: **Aşama 1** (metin + görseller + özet) → kısa gecikme → **Aşama 2** (onay sorusu). Link **gönderilmez**.
 
-**Eksileri / dikkat**
+**Gelen mesajlar (EVET / HAYIR)**
 
-- n8n’i **kendin host** etmeniz (Docker/VPS) veya **n8n Cloud** ücreti; üretimde güvenlik ve yedekleme sizin sorumluluğunuzda.
-- Firestore/Storage’dan veri almak için: **HTTP Request** node ile kendi küçük API’niz, veya Firebase REST (kural/kimlik karmaşık), veya n8n’de credential’lı bir Firebase eklentisi — pratikte çoğu ekip **basit bir “internal API”** (Netlify/Firebase function) bırakıp n8n’in sadece WhatsApp ve dallanmayı yapmasını tercih eder.
-- WhatsApp için yine **şablon mesajlar**, **24 saat penceresi**, Meta inceleme kuralları geçerli; n8n bunları değiştirmez.
-
-**Tipik akış örneği** (§2 üç aşamalı akışla uyumlu)
-
-1. **Webhook** (Fixly admin’den) → body: `{ "refId": "CC-...", "shopPhones": ["1...", ...] }`.
-2. **HTTP Request** → sizin `GET /api/internal/request/CC-...` (foto URL’leri + özet metin) — bu endpoint sunucuda Firestore/Storage okur, **service account** ile.
-3. **Split in batches** → her telefon için döngü.
-4. **Aşama 1:** WhatsApp → giriş metni → sırayla `image` → özet bilgi metni (**link yok**).
-5. **Aşama 2:** (aynı workflow’da gecikme veya ayrı “schedule”) → “Fiyat vermek ister misiniz?” metni.
-6. **Inbound workflow:** Meta webhook → mesaj `EVET` ise **Aşama 3:** quote URL gönder; değilse bitir veya teşekkür.
-7. Fiyat girişi mevcut **Quote sayfası** ile Firestore’a yazılır; admin paneli aynı kalır.
-
-**Özet:** n8n = “beyin ve kablolama”; WhatsApp ve güvenli veri erişimi için yine **Meta + sunucu tarafı bir API** (en azından ince bir katman) gerekir.
+1. Meta **Webhook URL**’i aynı Netlify/Firebase endpoint’ine işaret eder.
+2. Function: mesajı parse et → `EVET` ve `outreachSessions`’ta link henüz gitmediyse **Aşama 3** quote URL’ini Graph API ile gönder.
+3. Fiyat girişi yine mevcut **Quote sayfası** + Firestore `quote`; admin UI aynı.
 
 ---
 
@@ -141,8 +128,9 @@ Etkileşim seçenekleri (hangisi kolayınıza gelirse):
 
 Onay verirseniz bir sonraki iterasyonda:
 
-1. `netlify/functions/send-quote-whatsapp.js` iskeleti (env: `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`),
-2. Admin’den güvenli çağrı (Firebase Admin veya paylaşılan secret),
-3. `refId` → Firestore + Storage URL → Graph API `messages` dökümü
+1. `netlify/functions/send-quote-whatsapp.js` (veya Firebase eşdeğeri) — giden mesajlar, env: `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`,
+2. `netlify/functions/whatsapp-inbound.js` — Meta webhook: `EVET` sonrası quote linki gönderme + `outreachSessions` güncelleme,
+3. Admin’den güvenli çağrı (Firebase Admin veya paylaşılan secret),
+4. `refId` → Firestore + Storage URL → Graph API `messages` dökümü (§2 sırasına uygun).
 
-eklenebilir. **Meta uygulama ve onaylı şablonlar** olmadan production’da ilk mesajlar çalışmayabilir; bu kısım iş/operasyon.
+**Meta uygulama ve onaylı şablonlar** olmadan production’da ilk mesajlar çalışmayabilir; bu kısım iş/operasyon.
