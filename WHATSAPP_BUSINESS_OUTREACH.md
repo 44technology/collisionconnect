@@ -22,18 +22,62 @@ Hedef: Body shop’a **Fixly Business numarasından** doğrudan **hasar fotoğra
 
 ---
 
-## 2. Önerilen ürün akışı
+## 2. Önerilen ürün akışı — üç aşamalı mesaj (güven + link en sonda)
 
-1. **Müşteri** talebi + fotoğrafları oluşturur (Firestore + Storage — zaten var).
-2. **Admin** “WhatsApp ile gönder”e basar → **backend** şunu yapar:
-   - İlgili `refId` için foto URL’lerini Storage’dan alır.
-   - Her hedef body shop numarası için Cloud API’ye sırayla:
-     - Kısa metin: Fixly, resmi talep, araç özeti, ZIP, süre.
-     - Ardından her foto için `image` mesajı (veya medya grubu desteği API sürümüne göre).
-   - Son mesajda: **Kısa, güvenilir link** (hash’li quote sayfası) veya “Fiyatı şu formatta yanıtlayın: `QUOTE CC-XXX 2500`” gibi **parse edilebilir metin**.
-3. **İsteğe bağlı — webhook:**
-   - Gelen mesajları dinleyip fiyatı regex / NLP ile `quotes` koleksiyonuna yazmak.
-   - Ya da sadece linkteki mevcut **Quote sayfası** ile devam (daha az Meta incelemesi).
+Amaç: Önce **kaza fotoğrafları + araç/hasar bilgisi** gitsin (link yok veya çok az); güven oluşunca **isteğe bağlı teklif** sorulsun; **“Evet”** denince **fiyat girme** (mevcut quote sayfası veya kısa form linki) açılsın; teklifler **Firestore `quote`** altında toplansın, **admin** zaten talep detayından görsün.
+
+### Aşama 1 — Sadece içerik (foto + bilgi)
+
+Sıra önerisi (Cloud API / n8n döngüsü):
+
+1. **Kısa giriş metni** (tek mesaj):  
+   *“Fixly: doğrulanmış bir tamir talebi. Aşağıda araç ve hasar fotoğrafları ile özet bilgiler yer alıyor.”*
+2. **Hasar fotoğrafları** — her biri `image` mesajı (veya API’nin desteklediği şekilde sırayla). İlk mesajda link **göndermeyin** (fraud algısını düşürür).
+3. **Özet metin bloğu** (fotoğraflardan hemen sonra, tek mesaj):  
+   - Referans: `CC-XXXX-YYYY`  
+   - Araç: marka / model / yıl / trim (varsa)  
+   - Hasar özeti  
+   - ZIP  
+   - Müşterinin istediği süre (varsa)  
+   - İsteğe bağlı: VIN
+
+Veri kaynağı: Firestore `requests/{refId}` + Storage `requests/{refId}/...` (uygulamada mevcut).
+
+### Aşama 2 — Onay sorusu (fiyat vermek ister misiniz?)
+
+Ayrı bir mesaj (24 saat oturumu içinde normal metin; **ilk soğuk mesaj** ise Meta **şablon** gerekebilir):
+
+- *“Bu tamir talebi için teklif vermek ister misiniz?*  
+  *Evet derseniz bir sonraki adımda fiyat ve süre girebileceğiniz güvenli linki göndereceğiz.”*
+
+Etkileşim seçenekleri (hangisi kolayınıza gelirse):
+
+- **Metin:** *“Evet için EVET, ilgilenmiyorsanız HAYIR yazın.”*  
+- **Interactive reply / buton** (Cloud API sürümüne ve onaylı şablona bağlı).
+
+### Aşama 3 — Sadece “Evet” sonrası price / quote linki
+
+- **Webhook** (Meta → n8n veya kendi API): gelen mesajı normalize et (`evet`, `EVET`, emoji vb.).
+- Eşleşirse **bir kez** şu mesajı gönder:
+  - Kısa açıklama + **hash’li quote URL** (mevcut: `https://<site>/#/quote/<refId>?n=...&p=...` shop parametreleri ile).
+- Body shop **Quote sayfasında** fiyat + süre doldurur → uygulama zaten **`addQuoteAsync` / Firestore `quote`** ile kaydeder.
+- **Admin:** `AdminRequestDetail` üzerinden teklifleri görür / müşteriye açma (mevcut UI).
+
+**Hayır** veya cevap yok: ikinci mesajı göndermeyin veya teşekkür şablonu (isteğe bağlı).
+
+### Durum takibi (öneri)
+
+Çift gönderimi önlemek ve rapor için (Firestore veya n8n DB):
+
+- `outreachSessions/{refId}_{normalizedPhone}`: `phase: 1|2|3`, `consentAt`, `quoteLinkSentAt`.
+
+### Özet tablo
+
+| Aşama | İçerik | Link? |
+|--------|--------|--------|
+| 1 | Foto + araç/hasar bilgisi | Hayır (tercihen) |
+| 2 | “Fiyat vermek ister misiniz?” | Hayır |
+| 3 | Quote / price girişi | Evet (sadece EVET sonrası) |
 
 ---
 
@@ -79,13 +123,15 @@ Hedef: Body shop’a **Fixly Business numarasından** doğrudan **hasar fotoğra
 - Firestore/Storage’dan veri almak için: **HTTP Request** node ile kendi küçük API’niz, veya Firebase REST (kural/kimlik karmaşık), veya n8n’de credential’lı bir Firebase eklentisi — pratikte çoğu ekip **basit bir “internal API”** (Netlify/Firebase function) bırakıp n8n’in sadece WhatsApp ve dallanmayı yapmasını tercih eder.
 - WhatsApp için yine **şablon mesajlar**, **24 saat penceresi**, Meta inceleme kuralları geçerli; n8n bunları değiştirmez.
 
-**Tipik akış örneği**
+**Tipik akış örneği** (§2 üç aşamalı akışla uyumlu)
 
 1. **Webhook** (Fixly admin’den) → body: `{ "refId": "CC-...", "shopPhones": ["1...", ...] }`.
 2. **HTTP Request** → sizin `GET /api/internal/request/CC-...` (foto URL’leri + özet metin) — bu endpoint sunucuda Firestore/Storage okur, **service account** ile.
 3. **Split in batches** → her telefon için döngü.
-4. **WhatsApp Cloud API** node (veya HTTP Request ile Graph API) → önce metin, sonra her `image.link` (Storage public URL veya önce medya upload).
-5. İsteğe bağlı: gelen yanıtlar için **ayrı webhook** workflow’u (Meta “messages” webhook’unu n8n’e yönlendirme) → fiyatı parse edip yine internal API ile `quotes` yazma.
+4. **Aşama 1:** WhatsApp → giriş metni → sırayla `image` → özet bilgi metni (**link yok**).
+5. **Aşama 2:** (aynı workflow’da gecikme veya ayrı “schedule”) → “Fiyat vermek ister misiniz?” metni.
+6. **Inbound workflow:** Meta webhook → mesaj `EVET` ise **Aşama 3:** quote URL gönder; değilse bitir veya teşekkür.
+7. Fiyat girişi mevcut **Quote sayfası** ile Firestore’a yazılır; admin paneli aynı kalır.
 
 **Özet:** n8n = “beyin ve kablolama”; WhatsApp ve güvenli veri erişimi için yine **Meta + sunucu tarafı bir API** (en azından ince bir katman) gerekir.
 
