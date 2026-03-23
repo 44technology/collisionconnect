@@ -147,6 +147,72 @@ const AdminRequestDetail = () => {
     setWinningAmount("");
   };
 
+  const openShopMessageChannel = (channel: "whatsapp" | "sms" | "email", shop: AdminBodyShop) => {
+    const currentOrigin = typeof window !== "undefined" ? window.location.origin : "";
+    const baseUrl = (currentOrigin || import.meta.env.VITE_APP_URL || "https://collisionconnect.netlify.app").replace(/\/$/, "");
+    const hasShareableRef = isRefId(requestRefId);
+    if (!hasShareableRef) return;
+
+    const params = new URLSearchParams();
+    if (shop.name) params.set("n", shop.name);
+    if (shop.whatsappPhone) params.set("p", shop.whatsappPhone.replace(/\D/g, "").slice(0, 12));
+    if (shop.email) params.set("e", shop.email);
+    if (shop.address) params.set("a", shop.address);
+    const q = params.toString();
+    const link = `${baseUrl}/#/quote/${requestRefId}${q ? `?${q}` : ""}`;
+
+    const trustIntro = t("adminQuoteLinkTrustIntro") ?? "Hi! This is an official message from Fixly – we connect vehicle owners with body shops. The link below is a real quote request, not spam or fraud. You can safely open it to submit your price and turnaround time.";
+    const quotePrompt = (t("adminQuoteLinkMessage") ?? "New quote request – please submit your price and turnaround time:\n").replace(/\n/g, "\n");
+    const msg = `${trustIntro}\n\n${quotePrompt}${link}`;
+
+    if (channel === "whatsapp") {
+      const num = normalizeWhatsAppPhone(shop.whatsappPhone);
+      if (!num) return;
+      window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
+      return;
+    }
+    if (channel === "sms") {
+      const num = normalizeWhatsAppPhone(shop.whatsappPhone);
+      if (!num) return;
+      window.open(`sms:+${num}?body=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
+      return;
+    }
+    const email = (shop.email ?? "").trim();
+    if (!email) return;
+    const subject = encodeURIComponent("Quote request – Fixly");
+    window.open(`mailto:${email}?subject=${subject}&body=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
+  };
+
+  const handleSavePreferredChannel = async () => {
+    if (!preferenceDialogShop || !selectedPreferredChannel) {
+      setPreferenceDialogShop(null);
+      setPendingChannel(null);
+      return;
+    }
+    try {
+      const updated = await updateBodyShopAsync(preferenceDialogShop.id, {
+        preferredChannel: selectedPreferredChannel,
+      });
+      if (updated) {
+        setBodyShopsNearZip((prev) =>
+          prev.map((s) => (s.id === updated.id ? updated : s))
+        );
+      }
+    } catch {
+      toast.error(t("adminPreferredChannelSaveFailed") ?? "Could not save preferred channel.");
+    }
+    const channelToUse = pendingChannel ?? selectedPreferredChannel;
+    const shopToUse =
+      preferenceDialogShop.preferredChannel === selectedPreferredChannel
+        ? preferenceDialogShop
+        : { ...preferenceDialogShop, preferredChannel: selectedPreferredChannel };
+    setPreferenceDialogShop(null);
+    setPendingChannel(null);
+    if (channelToUse) {
+      openShopMessageChannel(channelToUse, shopToUse as AdminBodyShop);
+    }
+  };
+
   if (!isAdmin) return null;
 
   if (loadingRequest) {
@@ -310,35 +376,6 @@ const AdminRequestDetail = () => {
             ensurePreferenceAndOpen(shop, "email");
           };
 
-          const handleSavePreferredChannel = async () => {
-            if (!preferenceDialogShop || !selectedPreferredChannel) {
-              setPreferenceDialogShop(null);
-              setPendingChannel(null);
-              return;
-            }
-            try {
-              const updated = await updateBodyShopAsync(preferenceDialogShop.id, {
-                preferredChannel: selectedPreferredChannel,
-              });
-              if (updated) {
-                setBodyShopsNearZip((prev) =>
-                  prev.map((s) => (s.id === updated.id ? updated : s))
-                );
-              }
-            } catch {
-              toast.error(t("adminPreferredChannelSaveFailed") ?? "Could not save preferred channel.");
-            }
-            const channelToUse = pendingChannel ?? selectedPreferredChannel;
-            const shopToUse =
-              preferenceDialogShop.preferredChannel === selectedPreferredChannel
-                ? preferenceDialogShop
-                : { ...preferenceDialogShop, preferredChannel: selectedPreferredChannel };
-            setPreferenceDialogShop(null);
-            setPendingChannel(null);
-            if (channelToUse) {
-              performOpen(channelToUse, shopToUse as AdminBodyShop);
-            }
-          };
           const openAllTabs = () => {
             bodyShops.forEach((s) => performOpen("whatsapp", s));
             if (bodyShops.length > 0) toast.success(t("adminQuoteLinkOpenedAll") ?? "Opened WhatsApp for each body shop. Send the message in each tab.");
