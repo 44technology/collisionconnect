@@ -24,7 +24,6 @@ const QuotePage = () => {
   const { t } = useLanguage();
   const [quoteSubmitted, setQuoteSubmitted] = useState(false);
   const [fetchedRequest, setFetchedRequest] = useState<SubmittedRequest | null>(null);
-  const [loading, setLoading] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [form, setForm] = useState(() => {
     const n = searchParams.get("n") ?? "";
@@ -54,16 +53,37 @@ const QuotePage = () => {
     { value: "1month+", labelKey: "quoteTime1MonthPlus" },
     { value: "other", labelKey: "quoteTimeOther" },
   ] as const;
-  const submitted = id && isRefId(id) ? getSubmittedRequestByRefId(id) ?? null : null;
+  /** Same device may have stale localStorage; body-shop quote links must always prefer Firestore when enabled. */
+  const localSubmitted = id && isRefId(id) ? getSubmittedRequestByRefId(id) ?? null : null;
   const legacy = id && !isRefId(id) ? getShopRequestById(parseInt(id, 10)) : null;
-  const request = submitted ?? fetchedRequest ?? legacy;
-  const refDisplay = submitted ? submitted.refId : fetchedRequest ? fetchedRequest.refId : legacy ? `#${legacy.id}` : "";
+  const remoteForThisId =
+    fetchedRequest && id && fetchedRequest.refId === id ? fetchedRequest : null;
+  const request = remoteForThisId ?? localSubmitted ?? legacy;
+  const refDisplay =
+    request && "refId" in request && typeof request.refId === "string"
+      ? request.refId
+      : legacy
+        ? `#${legacy.id}`
+        : "";
   const requestRefId = id ?? "";
 
+  const needsRemoteQuote =
+    !!id && isRefId(id) && isFirebaseEnabled();
+
+  const [remoteReady, setRemoteReady] = useState(() => !needsRemoteQuote);
+
   useEffect(() => {
-    if (!id || !isRefId(id) || submitted) return;
+    if (!id || !isRefId(id)) {
+      setRemoteReady(true);
+      setFetchedRequest(null);
+      return;
+    }
+    if (!isFirebaseEnabled()) {
+      setRemoteReady(true);
+      return;
+    }
     let cancelled = false;
-    setLoading(true);
+    setRemoteReady(false);
     getRequestFromFirestore(id)
       .then((data) => {
         if (!cancelled) setFetchedRequest(data ?? null);
@@ -72,12 +92,16 @@ const QuotePage = () => {
         if (!cancelled) setFetchedRequest(null);
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setRemoteReady(true);
       });
-    return () => { cancelled = true; };
-  }, [id, submitted]);
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
-  if (loading) {
+  const showQuoteLoading = needsRemoteQuote && !remoteReady;
+
+  if (showQuoteLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="text-center max-w-md flex flex-col items-center gap-4">
