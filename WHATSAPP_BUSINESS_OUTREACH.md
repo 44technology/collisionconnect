@@ -63,7 +63,35 @@ Hedef: Body shop’a **Fixly Business numarasından** doğrudan **hasar fotoğra
 
 ---
 
-## 6. Sonraki adım (kod)
+## 6. n8n ile otomasyon (alternatif mimari)
+
+**Evet —** WhatsApp tarafı yine **WhatsApp Cloud API** (veya Twilio WhatsApp gibi bir sağlayıcı) gerektirir; n8n bunun **üstünde** iş akışını yönetir.
+
+**Artıları**
+
+- Görsel akış: “tetikle → veriyi çek → foto gönder → metin gönder → hata yakala / tekrar dene”.
+- Cron, kuyruk, Slack uyarısı, A/B metin gibi şeyleri koda gömmeden eklenebilir.
+- Fixly uygulamasında sadece **tek bir webhook** kalabilir: örn. admin “Gönder” → `POST https://n8n.sizin-domain.com/webhook/quote-broadcast` + `refId` + shop listesi veya secret token.
+
+**Eksileri / dikkat**
+
+- n8n’i **kendin host** etmeniz (Docker/VPS) veya **n8n Cloud** ücreti; üretimde güvenlik ve yedekleme sizin sorumluluğunuzda.
+- Firestore/Storage’dan veri almak için: **HTTP Request** node ile kendi küçük API’niz, veya Firebase REST (kural/kimlik karmaşık), veya n8n’de credential’lı bir Firebase eklentisi — pratikte çoğu ekip **basit bir “internal API”** (Netlify/Firebase function) bırakıp n8n’in sadece WhatsApp ve dallanmayı yapmasını tercih eder.
+- WhatsApp için yine **şablon mesajlar**, **24 saat penceresi**, Meta inceleme kuralları geçerli; n8n bunları değiştirmez.
+
+**Tipik akış örneği**
+
+1. **Webhook** (Fixly admin’den) → body: `{ "refId": "CC-...", "shopPhones": ["1...", ...] }`.
+2. **HTTP Request** → sizin `GET /api/internal/request/CC-...` (foto URL’leri + özet metin) — bu endpoint sunucuda Firestore/Storage okur, **service account** ile.
+3. **Split in batches** → her telefon için döngü.
+4. **WhatsApp Cloud API** node (veya HTTP Request ile Graph API) → önce metin, sonra her `image.link` (Storage public URL veya önce medya upload).
+5. İsteğe bağlı: gelen yanıtlar için **ayrı webhook** workflow’u (Meta “messages” webhook’unu n8n’e yönlendirme) → fiyatı parse edip yine internal API ile `quotes` yazma.
+
+**Özet:** n8n = “beyin ve kablolama”; WhatsApp ve güvenli veri erişimi için yine **Meta + sunucu tarafı bir API** (en azından ince bir katman) gerekir.
+
+---
+
+## 7. Sonraki adım (kod)
 
 Onay verirseniz bir sonraki iterasyonda:
 
