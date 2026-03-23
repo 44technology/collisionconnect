@@ -48,6 +48,7 @@ const NewRequest = () => {
   const [vinDecoding, setVinDecoding] = useState(false);
   const [makes, setMakes] = useState<MakeItem[]>([]);
   const [models, setModels] = useState<ModelItem[]>([]);
+  const [makesLoaded, setMakesLoaded] = useState(false);
   const [modelsLoading, setModelsLoading] = useState(false);
 
   useEffect(() => {
@@ -65,7 +66,17 @@ const NewRequest = () => {
   };
 
   useEffect(() => {
-    getAllMakes().then(setMakes);
+    let cancelled = false;
+    getAllMakes()
+      .then((list) => {
+        if (!cancelled) setMakes(list);
+      })
+      .finally(() => {
+        if (!cancelled) setMakesLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -258,7 +269,13 @@ const NewRequest = () => {
         imageLabels,
       });
       const fullRequest = getSubmittedRequestByRefId(refId);
-      if (fullRequest) saveRequestToFirestore(fullRequest).catch(() => {});
+      if (fullRequest) {
+        try {
+          await saveRequestToFirestore(fullRequest);
+        } catch {
+          toast.error(t("requestSavedLocallyButCloudFailed") ?? "Request saved locally, but cloud sync failed.");
+        }
+      }
       toast.success(t("requestSubmittedSuccess"));
       navigate(`/request/submitted?ref=${encodeURIComponent(refId)}&email=${encodeURIComponent(accountEmail)}`);
       setSubmitting(false);
@@ -306,7 +323,11 @@ const NewRequest = () => {
     });
     const fullRequest = getSubmittedRequestByRefId(refId);
     if (fullRequest) {
-      saveRequestToFirestore(fullRequest).catch(() => {});
+      try {
+        await saveRequestToFirestore(fullRequest);
+      } catch {
+        toast.error(t("requestSavedLocallyButCloudFailed") ?? "Request saved locally, but cloud sync failed.");
+      }
     }
     toast.success(t("requestSubmittedSuccess"));
     navigate(`/request/submitted?ref=${encodeURIComponent(refId)}`);
@@ -332,6 +353,8 @@ const NewRequest = () => {
     { value: "3-4weeks", labelKey: "desiredTimeframe3To4Weeks" },
     { value: "1month+", labelKey: "desiredTimeframe1MonthPlus" },
   ];
+  const useManualMakeInput = makesLoaded && makes.length === 0;
+  const useManualModelInput = !!formData.make && !modelsLoading && models.length === 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -432,44 +455,65 @@ const NewRequest = () => {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="make">{t("make")}</Label>
-                  <Select
-                    value={formData.make || "__none__"}
-                    onValueChange={(v) => updateField("make", v === "__none__" ? "" : v)}
-                    required
-                  >
-                    <SelectTrigger id="make">
-                      <SelectValue placeholder={t("makePlaceholder") ?? "Select make"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">{t("makePlaceholder") ?? "Select make"}</SelectItem>
-                      {makes.map((m) => (
-                        <SelectItem key={m.makeId} value={m.makeName}>
-                          {m.makeName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {useManualMakeInput ? (
+                    <Input
+                      id="make"
+                      placeholder={t("makePlaceholder") ?? "Select make"}
+                      value={formData.make}
+                      onChange={(e) => updateField("make", e.target.value)}
+                      required
+                    />
+                  ) : (
+                    <Select
+                      value={formData.make || "__none__"}
+                      onValueChange={(v) => updateField("make", v === "__none__" ? "" : v)}
+                      required
+                    >
+                      <SelectTrigger id="make">
+                        <SelectValue placeholder={t("makePlaceholder") ?? "Select make"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">{t("makePlaceholder") ?? "Select make"}</SelectItem>
+                        {makes.map((m) => (
+                          <SelectItem key={m.makeId} value={m.makeName}>
+                            {m.makeName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="model">{t("model")}</Label>
-                  <Select
-                    value={formData.model || "__none__"}
-                    onValueChange={(v) => updateField("model", v === "__none__" ? "" : v)}
-                    required
-                    disabled={!formData.make || modelsLoading}
-                  >
-                    <SelectTrigger id="model">
-                      <SelectValue placeholder={modelsLoading ? (t("loading") ?? "Loading…") : (t("modelPlaceholder") ?? "Select model")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">{t("modelPlaceholder") ?? "Select model"}</SelectItem>
-                      {models.map((m) => (
-                        <SelectItem key={m.modelId} value={m.modelName}>
-                          {m.modelName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {useManualModelInput ? (
+                    <Input
+                      id="model"
+                      placeholder={t("modelPlaceholder") ?? "Select model"}
+                      value={formData.model}
+                      onChange={(e) => updateField("model", e.target.value)}
+                      required
+                      disabled={!formData.make}
+                    />
+                  ) : (
+                    <Select
+                      value={formData.model || "__none__"}
+                      onValueChange={(v) => updateField("model", v === "__none__" ? "" : v)}
+                      required
+                      disabled={!formData.make || modelsLoading}
+                    >
+                      <SelectTrigger id="model">
+                        <SelectValue placeholder={modelsLoading ? (t("loading") ?? "Loading…") : (t("modelPlaceholder") ?? "Select model")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">{t("modelPlaceholder") ?? "Select model"}</SelectItem>
+                        {models.map((m) => (
+                          <SelectItem key={m.modelId} value={m.modelName}>
+                            {m.modelName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="trim">{t("trim")}</Label>

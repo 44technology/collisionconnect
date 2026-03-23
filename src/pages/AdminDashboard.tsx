@@ -8,11 +8,20 @@ import { useBids } from "@/lib/bidsStore";
 import { getSubscriptionStats } from "@/lib/subscriptionStore";
 import { useLanguage } from "@/lib/LanguageContext";
 import { shopRequestsDetail } from "@/lib/shopRequests";
-import { getAllRequestsFromFirestore } from "@/lib/requestsFirestore";
+import { getAllRequestsFromFirestore, subscribeAllRequestsFromFirestore } from "@/lib/requestsFirestore";
 import { isFirebaseEnabled } from "@/lib/firebase";
-import type { SubmittedRequest } from "@/lib/submittedRequestsStore";
+import { getAllSubmittedRequests, type SubmittedRequest } from "@/lib/submittedRequestsStore";
 
 const DEMO_CUSTOMER_COUNT = 24;
+
+function mergeRequests(primary: SubmittedRequest[], secondary: SubmittedRequest[]): SubmittedRequest[] {
+  const byRef = new Map<string, SubmittedRequest>();
+  secondary.forEach((r) => byRef.set(r.refId, r));
+  primary.forEach((r) => byRef.set(r.refId, r));
+  const list = [...byRef.values()];
+  list.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+  return list;
+}
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -22,9 +31,19 @@ const AdminDashboard = () => {
   const [firestoreRequests, setFirestoreRequests] = useState<SubmittedRequest[]>([]);
 
   useEffect(() => {
-    if (isFirebaseEnabled()) {
-      getAllRequestsFromFirestore().then(setFirestoreRequests);
+    const localRequests = getAllSubmittedRequests();
+    if (!isFirebaseEnabled()) {
+      setFirestoreRequests(localRequests);
+      return;
     }
+
+    getAllRequestsFromFirestore().then((list) => {
+      setFirestoreRequests(mergeRequests(list, localRequests));
+    });
+    const unsubscribe = subscribeAllRequestsFromFirestore((list) => {
+      setFirestoreRequests(mergeRequests(list, localRequests));
+    });
+    return () => unsubscribe();
   }, []);
 
   const activeBodyShops = getActiveBodyShopCount();

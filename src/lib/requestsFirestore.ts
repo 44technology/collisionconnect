@@ -1,7 +1,7 @@
 /**
  * Firestore persistence for submitted requests so quote links work from any device.
  */
-import { collection, doc, getDoc, getDocs, setDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, onSnapshot, setDoc } from "firebase/firestore";
 import { db, isFirebaseEnabled } from "./firebase";
 import type { SubmittedRequest } from "./submittedRequestsStore";
 
@@ -13,6 +13,7 @@ export async function saveRequestToFirestore(request: SubmittedRequest): Promise
     await setDoc(doc(db, COLLECTION, request.refId), request);
   } catch (e) {
     console.warn("Failed to save request to Firestore", e);
+    throw e;
   }
 }
 
@@ -49,4 +50,30 @@ export async function getAllRequestsFromFirestore(): Promise<SubmittedRequest[]>
     console.warn("Failed to list requests from Firestore", e);
     return [];
   }
+}
+
+/**
+ * Subscribe to all submitted requests so admin list updates live.
+ */
+export function subscribeAllRequestsFromFirestore(
+  onData: (requests: SubmittedRequest[]) => void,
+  onError?: (error: unknown) => void
+): () => void {
+  if (!isFirebaseEnabled() || !db) {
+    onData([]);
+    return () => {};
+  }
+
+  return onSnapshot(
+    collection(db, COLLECTION),
+    (snap) => {
+      const list = snap.docs.map((d) => d.data() as SubmittedRequest);
+      list.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+      onData(list);
+    },
+    (error) => {
+      console.warn("Failed to subscribe requests from Firestore", error);
+      if (onError) onError(error);
+    }
+  );
 }

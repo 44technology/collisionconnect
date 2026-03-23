@@ -243,9 +243,11 @@ const AdminRequestDetail = () => {
 
         {/* Send quote link to body shops near this request's zip */}
         {(() => {
-          const baseUrl = (import.meta.env.VITE_APP_URL || (typeof window !== "undefined" ? window.location.origin : "") || "https://collisionconnect.netlify.app").replace(/\/$/, "");
+          const currentOrigin = typeof window !== "undefined" ? window.location.origin : "";
+          const baseUrl = (currentOrigin || import.meta.env.VITE_APP_URL || "https://collisionconnect.netlify.app").replace(/\/$/, "");
+          const hasShareableRef = isRefId(requestRefId);
           const buildQuoteLink = (shop: AdminBodyShop) => {
-            if (!requestRefId) return baseUrl + "/quote/";
+            if (!hasShareableRef) return "";
             const params = new URLSearchParams();
             if (shop.name) params.set("n", shop.name);
             if (shop.whatsappPhone) params.set("p", shop.whatsappPhone.replace(/\D/g, "").slice(0, 12));
@@ -254,7 +256,7 @@ const AdminRequestDetail = () => {
             const q = params.toString();
             return `${baseUrl}/quote/${requestRefId}${q ? `?${q}` : ""}`;
           };
-          const quoteLink = requestRefId ? `${baseUrl}/quote/${requestRefId}` : "";
+          const quoteLink = hasShareableRef ? `${baseUrl}/quote/${requestRefId}` : "";
           const bodyShops = bodyShopsNearZip.filter((s) => normalizeWhatsAppPhone(s.whatsappPhone) || s.email);
           const trustIntro = t("adminQuoteLinkTrustIntro") ?? "Hi! This is an official message from Fixly – we connect vehicle owners with body shops. The link below is a real quote request, not spam or fraud. You can safely open it to submit your price and turnaround time.";
           const quotePrompt = (t("adminQuoteLinkMessage") ?? "New quote request – please submit your price and turnaround time:\n").replace(/\n/g, "\n");
@@ -387,7 +389,11 @@ const AdminRequestDetail = () => {
                     </pre>
                   </div>
                 )}
-                {bodyShops.length === 0 ? (
+                {!hasShareableRef ? (
+                  <p className="text-sm text-muted-foreground">
+                    {t("adminQuoteLinkUnavailableForMock") ?? "This request is demo/mock data. Create a new customer request to generate a shareable quote link."}
+                  </p>
+                ) : bodyShops.length === 0 ? (
                   <p className="text-sm text-muted-foreground">{t("adminNoBodyShopsForWhatsApp")}</p>
                 ) : (
                   <>
