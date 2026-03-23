@@ -100,6 +100,23 @@ Netlify’a deploy ettiğinizde aynı değerlerin orada da tanımlı olması ger
 
 Böylece canlı sitede de Firebase (Auth + Firestore) kullanılır; quote linkleri ve admin paneli çalışır.
 
+### 3.1 Sorun: Quote linkte “Request not found” + “Firebase is not configured…”
+
+Bu, **fixlyapp.netlify.app** (veya başka bir Netlify sitesi) build alınırken `VITE_FIREBASE_*` değişkenlerinin **hiç gelmediği** anlamına gelir. Vite bu değerleri **build sırasında** bundle’a gömer; sadece bilgisayarındaki `.env` dosyası canlıya taşınmaz.
+
+**Yapılacaklar:**
+
+1. Netlify → **Site configuration** → **Environment variables** → aşağıdakilerin **hepsi** tanımlı olsun (boş satır kalmasın):
+   - `VITE_FIREBASE_API_KEY`
+   - `VITE_FIREBASE_AUTH_DOMAIN`
+   - `VITE_FIREBASE_PROJECT_ID`
+   - `VITE_FIREBASE_STORAGE_BUCKET` (Storage / foto için şart)
+   - `VITE_FIREBASE_MESSAGING_SENDER_ID`
+   - `VITE_FIREBASE_APP_ID`
+2. Değişkenleri ekledikten veya düzelttikten sonra mutlaka **yeni bir deploy** alın: **Deploys** → **Trigger deploy** → mümkünse **Clear cache and deploy site**.
+3. **Deploy contexts**: Değişkenlerin yalnızca “Branch deploys”ta değil, **Production** için de geçerli olduğundan emin olun.
+4. Deploy bittikten sonra quote linki **gizli pencerede** tekrar açın (eski `index.js` önbelleği bazen kalabilir).
+
 ---
 
 ## 4. Firestore güvenlik kuralları

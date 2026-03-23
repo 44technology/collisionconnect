@@ -1,3 +1,8 @@
+# Quote linkleri ve Firestore için: Netlify UI → Environment variables içinde
+# VITE_FIREBASE_API_KEY, VITE_FIREBASE_AUTH_DOMAIN, VITE_FIREBASE_PROJECT_ID
+# (ve mümkünse STORAGE_BUCKET, MESSAGING_SENDER_ID, APP_ID) tanımlı olmalı;
+# ardından "Clear cache and deploy" ile yeniden build alın. Ayrıntı: FIREBASE_SETUP.md §3
+
 [build]
   command = "npm run build"
   publish = "dist"
