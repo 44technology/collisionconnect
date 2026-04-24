@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { getAuth, setPersistence, browserLocalPersistence } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
@@ -20,6 +20,12 @@ const hasConfig =
 
 const app = hasConfig ? initializeApp(firebaseConfig) : null;
 export const auth = app ? getAuth(app) : null;
+// Tarayıcıyı kapatıp açana kadar oturum sürsün (logout yapılana kadar).
+if (auth) {
+  void setPersistence(auth, browserLocalPersistence).catch(() => {
+    // Kalıcılık ayarı başarısız olsa bile auth çalışmaya devam eder.
+  });
+}
 export const db = app ? getFirestore(app) : null;
 export const storage = app && firebaseConfig.storageBucket ? getStorage(app) : null;
 

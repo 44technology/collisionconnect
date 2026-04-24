@@ -1,12 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Car, ArrowLeft, Upload, X, Camera, Mail, Clock, Lock, User } from "lucide-react";
-import { useNavigate, useLocation, Link } from "react-router-dom";
+import { Car, ArrowLeft, Upload, X, Camera, Clock, User, Mail, Lock, Apple, Chrome } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { useLanguage } from "@/lib/LanguageContext";
 import { useAuth } from "@/lib/authContext";
@@ -19,15 +19,37 @@ import { saveRequestToFirestore } from "@/lib/requestsFirestore";
 import { uploadRequestImages } from "@/lib/requestImagesStorage";
 import { auth, isFirebaseEnabled } from "@/lib/firebase";
 import { decodeVin, getAllMakes, getModelsForMake, type MakeItem, type ModelItem } from "@/lib/vehicleApi";
-import { fetchSignInMethodsForEmail } from "firebase/auth";
+import { fetchSignInMethodsForEmail, onAuthStateChanged } from "firebase/auth";
+
+const GUEST_DRAFT_KEY = "fixly_guest_new_request_draft_v1";
+
+function dataUrlToFile(dataUrl: string, filename: string) {
+  const [header, b64] = dataUrl.split(",");
+  const mime = header?.match(/data:(.*?);base64/)?.[1] || "image/jpeg";
+  const bytes = atob(b64);
+  const arr = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i += 1) arr[i] = bytes.charCodeAt(i);
+  return new File([arr], filename, { type: mime });
+}
+
+async function fileToDataUrl(file: File) {
+  return await new Promise<string>((resolve, reject) => {
+    const r = new FileReader();
+    r.onerror = () => reject(new Error("read failed"));
+    r.onload = () => resolve(String(r.result));
+    r.readAsDataURL(file);
+  });
+}
 
 const NewRequest = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useLanguage();
-  const { registerCustomer, login, loginWithEmailAndPassword, signInWithGoogle, signInWithApple, user } = useAuth();
-  const isGuestFlow = location.pathname === "/request/new" && !user;
+  const { registerCustomer, login, loginWithEmailAndPassword, signInWithGoogle, signInWithApple } = useAuth();
+  // Misafir akışı: sayfa `/request/new` ile açıldıysa, kullanıcı sonradan giriş yapsa bile aynı form akışı devam etsin.
+  const [isGuestSession] = useState(() => location.pathname === "/request/new");
   const [guestAuthMode, setGuestAuthMode] = useState<"register" | "login">("register");
+  const [account, setAccount] = useState({ fullName: "", email: "", password: "", confirmPassword: "" });
 
   const [formData, setFormData] = useState({
     make: "",
@@ -42,9 +64,9 @@ const NewRequest = () => {
   });
   type SlotImage = { id: string; file: File; previewUrl: string };
   const [imagesBySlot, setImagesBySlot] = useState<Record<string, SlotImage>>({});
-  const [account, setAccount] = useState({ fullName: "", email: "", password: "", confirmPassword: "" });
   const [submitting, setSubmitting] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<"google" | "apple" | null>(null);
+  const saveDraftTimer = useRef<number | null>(null);
   const [vinDecoding, setVinDecoding] = useState(false);
   const [makes, setMakes] = useState<MakeItem[]>([]);
   const [models, setModels] = useState<ModelItem[]>([]);
@@ -53,9 +75,94 @@ const NewRequest = () => {
   const [forceManualMakeInput, setForceManualMakeInput] = useState(false);
 
   useEffect(() => {
-    // Kullanıcı yokken guest akışa girince register adımıyla başlayalım.
-    if (isGuestFlow) setGuestAuthMode("register");
-  }, [isGuestFlow]);
+    if (isGuestSession) setGuestAuthMode("register");
+  }, [isGuestSession]);
+
+  useEffect(() => {
+    if (!isGuestSession) return;
+    if (!isFirebaseEnabled() || !auth) return;
+    const unsub = onAuthStateChanged(auth, (u) => {
+      if (!u) return;
+      setAccount((prev) => ({
+        ...prev,
+        email: prev.email?.trim() ? prev.email : u.email ?? prev.email,
+        fullName: prev.fullName?.trim() ? prev.fullName : u.displayName ?? prev.fullName,
+      }));
+    });
+    return () => unsub();
+  }, [isGuestSession]);
+
+  const persistGuestDraft = useCallback(async () => {
+    if (!isGuestSession) return;
+    try {
+      const images: Record<string, { dataUrl: string; name: string }> = {};
+      for (const [k, v] of Object.entries(imagesBySlot)) {
+        // eslint-disable-next-line no-await-in-loop
+        const dataUrl = await fileToDataUrl(v.file);
+        images[k] = { dataUrl, name: v.file.name || `${k}.jpg` };
+      }
+      localStorage.setItem(
+        GUEST_DRAFT_KEY,
+        JSON.stringify({
+          v: 1,
+          guestAuthMode,
+          account,
+          formData,
+          images,
+        })
+      );
+    } catch {
+      // ignore storage quota / serialization issues
+    }
+  }, [account, formData, guestAuthMode, imagesBySlot, isGuestSession]);
+
+  useEffect(() => {
+    if (!isGuestSession) return;
+    let cancelled = false;
+    (async () => {
+      const raw = localStorage.getItem(GUEST_DRAFT_KEY);
+      if (!raw) return;
+      try {
+        const parsed = JSON.parse(raw) as {
+          guestAuthMode?: "register" | "login";
+          account?: typeof account;
+          formData?: typeof formData;
+          images?: Record<string, { dataUrl: string; name: string }>;
+        };
+        if (cancelled) return;
+        if (parsed.guestAuthMode) setGuestAuthMode(parsed.guestAuthMode);
+        if (parsed.account) setAccount(parsed.account);
+        if (parsed.formData) setFormData(parsed.formData);
+        if (parsed.images) {
+          setImagesBySlot((prev) => {
+            for (const v of Object.values(prev)) URL.revokeObjectURL(v.previewUrl);
+            const next: Record<string, SlotImage> = {};
+            for (const [k, item] of Object.entries(parsed.images || {})) {
+              const file = dataUrlToFile(item.dataUrl, item.name || `${k}.jpg`);
+              next[k] = { id: `${Date.now()}-${k}`, file, previewUrl: URL.createObjectURL(file) };
+            }
+            return next;
+          });
+        }
+      } catch {
+        // ignore
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isGuestSession]);
+
+  useEffect(() => {
+    if (!isGuestSession) return;
+    if (saveDraftTimer.current) window.clearTimeout(saveDraftTimer.current);
+    saveDraftTimer.current = window.setTimeout(() => {
+      void persistGuestDraft();
+    }, 600);
+    return () => {
+      if (saveDraftTimer.current) window.clearTimeout(saveDraftTimer.current);
+    };
+  }, [account, formData, guestAuthMode, imagesBySlot, isGuestSession, persistGuestDraft]);
 
   const updateField = (field: string, value: string) => {
     setFormData((prev) => {
@@ -150,6 +257,40 @@ const NewRequest = () => {
     });
   };
 
+  const oauthBusy = !!oauthLoading || submitting;
+
+  const handleGuestGoogle = async () => {
+    if (!isFirebaseEnabled() || !auth) {
+      toast.error("Firebase is not configured");
+      return;
+    }
+    try {
+      await persistGuestDraft();
+      setOauthLoading("google");
+      await signInWithGoogle();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    } finally {
+      setOauthLoading(null);
+    }
+  };
+
+  const handleGuestApple = async () => {
+    if (!isFirebaseEnabled() || !auth) {
+      toast.error("Firebase is not configured");
+      return;
+    }
+    try {
+      await persistGuestDraft();
+      setOauthLoading("apple");
+      await signInWithApple();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    } finally {
+      setOauthLoading(null);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.desiredTimeframe) {
@@ -168,82 +309,100 @@ const NewRequest = () => {
       return;
     }
 
-    if (isGuestFlow) {
-      const fullName = account.fullName;
-      const accountEmail = account.email.trim();
-      const password = account.password;
-      const confirmPassword = account.confirmPassword;
+    const fullName = account.fullName;
+    const accountEmail = account.email.trim();
+    const authedEmail = auth?.currentUser?.email?.trim() ?? "";
+    const effectiveEmail = accountEmail || authedEmail;
+    const password = account.password;
+    const confirmPassword = account.confirmPassword;
 
-      if (!accountEmail) {
-        toast.error(t("enterEmail"));
-        return;
-      }
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(accountEmail)) {
-        toast.error(t("invalidEmail"));
+    if (isGuestSession) {
+      if (!fullName.trim()) {
+        toast.error(t("fullName") + " — " + (t("enterName") ?? "Required"));
         return;
       }
 
-      setSubmitting(true);
-      try {
+      if (guestAuthMode === "register") {
+        if (!effectiveEmail) {
+          toast.error(t("enterEmail"));
+          return;
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(effectiveEmail)) {
+          toast.error(t("invalidEmail"));
+          return;
+        }
+      } else if (guestAuthMode === "login" && !auth?.currentUser) {
+        if (!effectiveEmail) {
+          toast.error(t("enterEmail"));
+          return;
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(effectiveEmail)) {
+          toast.error(t("invalidEmail"));
+          return;
+        }
+      }
+    }
+
+    setSubmitting(true);
+    try {
+      let contactEmail = "";
+
+      if (isGuestSession) {
+        const name = account.fullName;
+        const typedEmail = account.email.trim();
+        const password = account.password;
+        const confirmPassword = account.confirmPassword;
+
         if (isFirebaseEnabled()) {
+          const alreadySignedIn = !!auth?.currentUser;
+
           if (guestAuthMode === "register") {
-            if (!fullName.trim()) {
-              toast.error(t("fullName") + " — " + (t("enterName") ?? "Required"));
-              setSubmitting(false);
-              return;
-            }
-            if (password.length < 6) {
-              toast.error(t("passwordMinLength"));
-              setSubmitting(false);
-              return;
-            }
-            if (password !== confirmPassword) {
-              toast.error(t("passwordsDoNotMatch"));
-              setSubmitting(false);
-              return;
-            }
+            if (!alreadySignedIn) {
+              if (password.length < 6) {
+                toast.error(t("passwordMinLength"));
+                setSubmitting(false);
+                return;
+              }
+              if (password !== confirmPassword) {
+                toast.error(t("passwordsDoNotMatch"));
+                setSubmitting(false);
+                return;
+              }
 
-            // Email daha önce kayıtlıysa, register yerine login adımına geçiyoruz.
-            const methods = auth ? await fetchSignInMethodsForEmail(auth, accountEmail) : [];
-            if (methods.length > 0) {
-              setGuestAuthMode("login");
-              toast.info(t("alreadyHaveAccount") ?? "Account exists. Please sign in.");
-              setSubmitting(false);
-              return;
-            }
+              const methods = auth ? await fetchSignInMethodsForEmail(auth, effectiveEmail) : [];
+              if (methods.length > 0) {
+                setGuestAuthMode("login");
+                toast.info(t("alreadyHaveAccount") ?? "Account exists. Please sign in.");
+                setSubmitting(false);
+                return;
+              }
 
-            await registerCustomer({
-              email: accountEmail,
-              password,
-              name: fullName.trim(),
-            });
+              await registerCustomer({
+                email: effectiveEmail,
+                password,
+                name: name.trim(),
+              });
+            }
+            contactEmail = auth?.currentUser?.email || effectiveEmail;
           } else {
-            if (password.length < 6) {
-              toast.error(t("passwordMinLength"));
-              setSubmitting(false);
-              return;
+            if (!alreadySignedIn) {
+              if (password.length < 6) {
+                toast.error(t("passwordMinLength"));
+                setSubmitting(false);
+                return;
+              }
+              await loginWithEmailAndPassword(typedEmail || effectiveEmail, password);
             }
-            await loginWithEmailAndPassword(accountEmail, password);
+            contactEmail = auth?.currentUser?.email || typedEmail || effectiveEmail;
           }
         } else {
-          // Firebase kapalıyken mock akış: sadece customer olarak giriş yapıyoruz.
           if (guestAuthMode === "register") {
-            if (!fullName.trim()) {
-              toast.error(t("fullName") + " — " + (t("enterName") ?? "Required"));
-              setSubmitting(false);
-              return;
-            }
-            login("customer", fullName.trim());
+            login("customer", name.trim());
           } else {
-            // Mock’ta login modu pratikte register ile aynı davranır.
-            login("customer", fullName.trim() || "Customer");
+            login("customer", (typedEmail || effectiveEmail).split("@")[0] || "Customer");
           }
+          contactEmail = typedEmail || effectiveEmail;
         }
-      } catch (err: unknown) {
-        const msg = err && typeof err === "object" && "message" in err ? (err as { message?: string }).message : String(err);
-        toast.error(msg ?? t("registrationFailed"));
-        setSubmitting(false);
-        return;
       }
 
       const vehicle = [formData.make, formData.model, formData.trim, formData.year].filter(Boolean).join(" ");
@@ -262,15 +421,9 @@ const NewRequest = () => {
       let imageUrls: string[] = [];
       let imageLabels: string[] = [];
       if (imageList.length > 0) {
-        try {
-          const res = await uploadRequestImages(refId, imageList);
-          imageUrls = res.urls;
-          imageLabels = res.labels;
-        } catch {
-          toast.error(t("photoUploadFailed") ?? "Photo upload failed. Please retry.");
-          setSubmitting(false);
-          return;
-        }
+        const res = await uploadRequestImages(refId, imageList);
+        imageUrls = res.urls;
+        imageLabels = res.labels;
       }
       addSubmittedRequestWithRefId(refId, {
         vehicle: vehicle || "—",
@@ -294,68 +447,30 @@ const NewRequest = () => {
           toast.error(t("requestSavedLocallyButCloudFailed") ?? "Request saved locally, but cloud sync failed.");
         }
       }
+      if (isGuestSession) {
+        try {
+          localStorage.removeItem(GUEST_DRAFT_KEY);
+        } catch {
+          // ignore
+        }
+      }
       toast.success(t("requestSubmittedSuccess"));
-      navigate(`/request/submitted?ref=${encodeURIComponent(refId)}&email=${encodeURIComponent(accountEmail)}`);
+      if (isGuestSession) {
+        navigate(`/request/submitted?ref=${encodeURIComponent(refId)}&email=${encodeURIComponent(contactEmail || "")}`);
+      } else {
+        navigate(`/request/submitted?ref=${encodeURIComponent(refId)}`);
+      }
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === "object" && "message" in err ? (err as { message?: string }).message : String(err);
+      toast.error(msg || t("registrationFailed"));
+    } finally {
       setSubmitting(false);
-      return;
     }
-
-    setSubmitting(true);
-    const vehicle = [formData.make, formData.model, formData.trim, formData.year].filter(Boolean).join(" ");
-    const refId = generateRefId();
-    const imageSlotOrder = [
-      { key: "front", labelKey: "frontView" },
-      { key: "rear", labelKey: "rearView" },
-      { key: "left", labelKey: "leftSide" },
-      { key: "right", labelKey: "rightSide" },
-      { key: "engine", labelKey: "engineBay" },
-      { key: "damage", labelKey: "damageDetailLabel" },
-    ];
-    const imageList = imageSlotOrder
-      .filter(({ key }) => imagesBySlot[key])
-      .map(({ key, labelKey }) => ({ file: imagesBySlot[key].file, label: t(labelKey) }));
-    let imageUrls: string[] = [];
-    let imageLabels: string[] = [];
-    if (imageList.length > 0) {
-      try {
-        const res = await uploadRequestImages(refId, imageList);
-        imageUrls = res.urls;
-        imageLabels = res.labels;
-      } catch {
-        toast.error(t("photoUploadFailed") ?? "Photo upload failed. Please retry.");
-        setSubmitting(false);
-        return;
-      }
-    }
-    addSubmittedRequestWithRefId(refId, {
-      vehicle: vehicle || "—",
-      make: formData.make,
-      model: formData.model,
-      trim: formData.trim,
-      year: formData.year,
-      vin: formData.vin.trim() || undefined,
-      damage: formData.damageDescription || "—",
-      zipCode: zipTrimmed,
-      desiredTimeframe: formData.desiredTimeframe,
-      additionalNotes: formData.additionalNotes || "",
-      imageUrls,
-      imageLabels,
-    });
-    const fullRequest = getSubmittedRequestByRefId(refId);
-    if (fullRequest) {
-      try {
-        await saveRequestToFirestore(fullRequest);
-      } catch {
-        toast.error(t("requestSavedLocallyButCloudFailed") ?? "Request saved locally, but cloud sync failed.");
-      }
-    }
-    toast.success(t("requestSubmittedSuccess"));
-    navigate(`/request/submitted?ref=${encodeURIComponent(refId)}`);
-    setSubmitting(false);
   };
 
-  const backHref = isGuestFlow ? "/" : "/dashboard";
-  const title = isGuestFlow ? t("newRequestTitleGuest") : t("newRequestTitle");
+  const backHref = isGuestSession ? "/" : "/dashboard";
+  const title = isGuestSession ? t("newRequestTitleGuest") : t("newRequestTitle");
 
   const imageTypes = [
     { key: "front", labelKey: "frontView", required: true },
@@ -405,7 +520,7 @@ const NewRequest = () => {
       {/* Main Content - Guest: photos first; Dashboard: vehicle first */}
       <main className="container mx-auto px-4 py-8 max-w-3xl">
         <form onSubmit={handleSubmit} className="space-y-6">
-          {isGuestFlow && (
+          {isGuestSession && (
             <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -651,7 +766,7 @@ const NewRequest = () => {
           </Card>
 
           {/* Photo Upload - only when dashboard flow (guest sees photos first above) */}
-          {!isGuestFlow && (
+          {!isGuestSession && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -706,8 +821,8 @@ const NewRequest = () => {
           </Card>
           )}
 
-          {/* Auth step — guest flow: submit sırasında register yerine login adımına geçer */}
-          {isGuestFlow && (
+          {/* Guest: email sign-up or sign-in (+ optional OAuth) */}
+          {isGuestSession && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -717,7 +832,7 @@ const NewRequest = () => {
                 <CardDescription>
                   {guestAuthMode === "register"
                     ? t("yourEmailDescription")
-                    : "Account exists. Please sign in to continue."}
+                    : t("guestSignInEmailDescription")}
                 </CardDescription>
               </CardHeader>
 
@@ -736,10 +851,38 @@ const NewRequest = () => {
                       />
                     </div>
 
+                    {isFirebaseEnabled() && (
+                      <>
+                        <div className="pt-1 text-center text-xs text-muted-foreground">{t("oauthSignUpDivider")}</div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <Button
+                            type="button"
+                            variant="default"
+                            className="h-11 w-full justify-center gap-2 rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
+                            disabled={oauthBusy}
+                            onClick={handleGuestGoogle}
+                          >
+                            <Chrome className="h-4 w-4" />
+                            {oauthLoading === "google" ? t("creatingAccount") : t("signUpWithGoogle")}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="default"
+                            className="h-11 w-full justify-center gap-2 rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
+                            disabled={oauthBusy}
+                            onClick={handleGuestApple}
+                          >
+                            <Apple className="h-4 w-4" />
+                            {oauthLoading === "apple" ? t("creatingAccount") : t("signUpWithApple")}
+                          </Button>
+                        </div>
+                      </>
+                    )}
+
                     <div>
-                      <Label htmlFor="request-email">{t("email")}</Label>
+                      <Label htmlFor="request-email-reg">{t("email")}</Label>
                       <Input
-                        id="request-email"
+                        id="request-email-reg"
                         type="email"
                         placeholder="you@example.com"
                         value={account.email}
@@ -749,9 +892,9 @@ const NewRequest = () => {
                     </div>
 
                     <div>
-                      <Label htmlFor="request-password">{t("password")}</Label>
+                      <Label htmlFor="request-password-reg">{t("password")}</Label>
                       <Input
-                        id="request-password"
+                        id="request-password-reg"
                         type="password"
                         placeholder="••••••••"
                         value={account.password}
@@ -773,7 +916,7 @@ const NewRequest = () => {
                     </div>
 
                     <p className="text-sm text-muted-foreground">
-                      {t("alreadyHaveAccount") ?? "Already have an account?"}{" "}
+                      {t("alreadyHaveAccount")}{" "}
                       <button
                         type="button"
                         className="text-accent font-medium hover:underline"
@@ -788,75 +931,64 @@ const NewRequest = () => {
                 {guestAuthMode === "login" && (
                   <>
                     <div>
-                      <Label htmlFor="request-email">{t("email")}</Label>
-                      <Input
-                        id="request-email"
-                        type="email"
-                        placeholder="you@example.com"
-                        value={account.email}
-                        onChange={(e) => setAccount((a) => ({ ...a, email: e.target.value }))}
-                        className="mt-2"
-                      />
+                      <Label htmlFor="request-email-login">{t("email")}</Label>
+                      <div className="relative mt-2">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                        <Input
+                          id="request-email-login"
+                          type="email"
+                          placeholder="you@example.com"
+                          value={account.email}
+                          onChange={(e) => setAccount((a) => ({ ...a, email: e.target.value }))}
+                          className="pl-10"
+                        />
+                      </div>
                     </div>
 
                     <div>
-                      <Label htmlFor="request-password">{t("password")}</Label>
-                      <Input
-                        id="request-password"
-                        type="password"
-                        placeholder="••••••••"
-                        value={account.password}
-                        onChange={(e) => setAccount((a) => ({ ...a, password: e.target.value }))}
-                        className="mt-2"
-                      />
+                      <Label htmlFor="request-password-login">{t("password")}</Label>
+                      <div className="relative mt-2">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                        <Input
+                          id="request-password-login"
+                          type="password"
+                          placeholder="••••••••"
+                          value={account.password}
+                          onChange={(e) => setAccount((a) => ({ ...a, password: e.target.value }))}
+                          className="pl-10"
+                        />
+                      </div>
                     </div>
 
                     {isFirebaseEnabled() && (
-                      <div className="space-y-3 pt-2">
-                        <div className="text-center text-xs text-muted-foreground">or continue with</div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="w-full"
-                          size="lg"
-                          disabled={!!oauthLoading || submitting}
-                          onClick={async () => {
-                            try {
-                              setOauthLoading("google");
-                              await signInWithGoogle();
-                            } catch (err: unknown) {
-                              const msg = err instanceof Error ? err.message : String(err);
-                              toast.error(msg);
-                              setOauthLoading(null);
-                            }
-                          }}
-                        >
-                          Continue with Google
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="w-full"
-                          size="lg"
-                          disabled={!!oauthLoading || submitting}
-                          onClick={async () => {
-                            try {
-                              setOauthLoading("apple");
-                              await signInWithApple();
-                            } catch (err: unknown) {
-                              const msg = err instanceof Error ? err.message : String(err);
-                              toast.error(msg);
-                              setOauthLoading(null);
-                            }
-                          }}
-                        >
-                          Continue with Apple
-                        </Button>
-                      </div>
+                      <>
+                        <div className="pt-1 text-center text-xs text-muted-foreground">{t("oauthContinueDivider")}</div>
+                        <div className="grid grid-cols-2 gap-3 pt-1">
+                          <Button
+                            type="button"
+                            variant="default"
+                            className="h-11 w-full justify-center gap-2 rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
+                            disabled={oauthBusy}
+                            onClick={handleGuestGoogle}
+                          >
+                            <Chrome className="h-4 w-4" />
+                            {oauthLoading === "google" ? (t("signingIn") ?? "…") : t("continueWithGoogle")}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="default"
+                            className="h-11 w-full justify-center gap-2 rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
+                            disabled={oauthBusy}
+                            onClick={handleGuestApple}
+                          >
+                            <Apple className="h-4 w-4" />
+                            {oauthLoading === "apple" ? (t("signingIn") ?? "…") : t("continueWithApple")}
+                          </Button>
+                        </div>
+                      </>
                     )}
 
                     <p className="text-sm text-muted-foreground">
-                      New here?{" "}
                       <button
                         type="button"
                         className="text-accent font-medium hover:underline"

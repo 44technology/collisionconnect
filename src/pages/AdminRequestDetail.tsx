@@ -35,6 +35,11 @@ import { getShopRequestById } from "@/lib/shopRequests";
 import { getRequestFromFirestore } from "@/lib/requestsFirestore";
 import { getSubmittedRequestByRefId, isRefId } from "@/lib/submittedRequestsStore";
 import { getBodyShopsNearZipAsync, normalizeWhatsAppPhone, type AdminBodyShop, updateBodyShopAsync } from "@/lib/bodyShopsStore";
+import {
+  formatVehicleForOutreach,
+  buildBodyShopOutreachIntro,
+  buildBodyShopOutreachWithLink,
+} from "@/lib/bodyShopOutreachMessages";
 import { getQuotesByRequestRefIdAsync } from "@/lib/quotesStore";
 import { getVisibleQuoteIdsAsync, setVisibleQuoteIdsAsync } from "@/lib/visibleQuotesStore";
 import { toast } from "sonner";
@@ -67,6 +72,7 @@ const AdminRequestDetail = () => {
   const [bodyShopsNearZip, setBodyShopsNearZip] = useState<AdminBodyShop[]>([]);
   const [preferenceDialogShop, setPreferenceDialogShop] = useState<AdminBodyShop | null>(null);
   const [pendingChannel, setPendingChannel] = useState<"whatsapp" | "sms" | "email" | null>(null);
+  const [pendingOutreachPhase, setPendingOutreachPhase] = useState<1 | 2>(1);
   const [selectedPreferredChannel, setSelectedPreferredChannel] = useState<"whatsapp" | "sms" | "email" | null>(null);
 
   const requestRefId = request ? ((request as { refId?: string }).refId ?? String((request as { id?: number }).id ?? "")) : "";
@@ -147,7 +153,7 @@ const AdminRequestDetail = () => {
     setWinningAmount("");
   };
 
-  const openShopMessageChannel = (channel: "whatsapp" | "sms" | "email", shop: AdminBodyShop) => {
+  const openShopMessageChannel = (channel: "whatsapp" | "sms" | "email", shop: AdminBodyShop, phase: 1 | 2) => {
     const currentOrigin = typeof window !== "undefined" ? window.location.origin : "";
     const baseUrl = (currentOrigin || import.meta.env.VITE_APP_URL || "https://collisionconnect.netlify.app").replace(/\/$/, "");
     const hasShareableRef = isRefId(requestRefId);
@@ -161,9 +167,9 @@ const AdminRequestDetail = () => {
     const q = params.toString();
     const link = `${baseUrl}/#/quote/${requestRefId}${q ? `?${q}` : ""}`;
 
-    const trustIntro = t("adminQuoteLinkTrustIntro") ?? "Hi! This is an official message from Fixly – we connect vehicle owners with body shops. The link below is a real quote request, not spam or fraud. You can safely open it to submit your price and turnaround time.";
-    const quotePrompt = (t("adminQuoteLinkMessage") ?? "New quote request – please submit your price and turnaround time:\n").replace(/\n/g, "\n");
-    const msg = `${trustIntro}\n\n${quotePrompt}${link}`;
+    const vehicleDesc = formatVehicleForOutreach(request ?? undefined);
+    const msg =
+      phase === 1 ? buildBodyShopOutreachIntro(vehicleDesc) : buildBodyShopOutreachWithLink(link);
 
     if (channel === "whatsapp") {
       const num = normalizeWhatsAppPhone(shop.whatsappPhone);
@@ -209,7 +215,7 @@ const AdminRequestDetail = () => {
     setPreferenceDialogShop(null);
     setPendingChannel(null);
     if (channelToUse) {
-      openShopMessageChannel(channelToUse, shopToUse as AdminBodyShop);
+      openShopMessageChannel(channelToUse, shopToUse as AdminBodyShop, pendingOutreachPhase);
     }
   };
 
@@ -327,58 +333,62 @@ const AdminRequestDetail = () => {
           };
           const quoteLink = hasShareableRef ? `${baseUrl}${quoteBasePath}/${requestRefId}` : "";
           const bodyShops = bodyShopsNearZip.filter((s) => normalizeWhatsAppPhone(s.whatsappPhone) || s.email);
-          const trustIntro = t("adminQuoteLinkTrustIntro") ?? "Hi! This is an official message from Fixly – we connect vehicle owners with body shops. The link below is a real quote request, not spam or fraud. You can safely open it to submit your price and turnaround time.";
-          const quotePrompt = (t("adminQuoteLinkMessage") ?? "New quote request – please submit your price and turnaround time:\n").replace(/\n/g, "\n");
-          const buildMessage = (link: string) => `${trustIntro}\n\n${quotePrompt}${link}`;
-          const defaultMessage = buildMessage(quoteLink);
-          const performOpen = (channel: "whatsapp" | "sms" | "email", shop: AdminBodyShop) => {
+          const vehicleDesc = formatVehicleForOutreach(request ?? undefined);
+          const introMessagePreview = buildBodyShopOutreachIntro(vehicleDesc);
+          const linkMessagePreview = buildBodyShopOutreachWithLink(quoteLink || `${baseUrl}${quoteBasePath}/…`);
+
+          const performOpen = (channel: "whatsapp" | "sms" | "email", shop: AdminBodyShop, phase: 1 | 2) => {
+            const linkWithShop = buildQuoteLink(shop);
+            const msg =
+              phase === 1
+                ? buildBodyShopOutreachIntro(vehicleDesc)
+                : buildBodyShopOutreachWithLink(linkWithShop);
             if (channel === "whatsapp") {
               const num = normalizeWhatsAppPhone(shop.whatsappPhone);
               if (!num) return;
-              const linkWithShop = buildQuoteLink(shop);
-              const msg = buildMessage(linkWithShop);
               window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
             } else if (channel === "sms") {
               const num = normalizeWhatsAppPhone(shop.whatsappPhone);
               if (!num) return;
-              const linkWithShop = buildQuoteLink(shop);
-              const msg = buildMessage(linkWithShop);
               const smsUrl = `sms:+${num}?body=${encodeURIComponent(msg)}`;
               window.open(smsUrl, "_blank", "noopener,noreferrer");
             } else if (channel === "email") {
               const email = (shop.email ?? "").trim();
               if (!email) return;
-              const linkWithShop = buildQuoteLink(shop);
-              const msg = buildMessage(linkWithShop);
               const subject = encodeURIComponent("Quote request – Fixly");
               const body = encodeURIComponent(msg);
               window.open(`mailto:${email}?subject=${subject}&body=${body}`, "_blank", "noopener,noreferrer");
             }
           };
 
-          const ensurePreferenceAndOpen = (shop: AdminBodyShop, channel: "whatsapp" | "sms" | "email") => {
+          const ensurePreferenceAndOpen = (shop: AdminBodyShop, channel: "whatsapp" | "sms" | "email", phase: 1 | 2) => {
+            setPendingOutreachPhase(phase);
             if (!shop.preferredChannel) {
               setPreferenceDialogShop(shop);
               setPendingChannel(channel);
               setSelectedPreferredChannel(channel);
               return;
             }
-            performOpen(channel, shop);
+            performOpen(channel, shop, phase);
           };
 
-          const openWhatsApp = (shop: AdminBodyShop) => {
-            ensurePreferenceAndOpen(shop, "whatsapp");
+          const openWhatsAppStep = (shop: AdminBodyShop, phase: 1 | 2) => {
+            ensurePreferenceAndOpen(shop, "whatsapp", phase);
           };
           const openSms = (shop: AdminBodyShop) => {
-            ensurePreferenceAndOpen(shop, "sms");
+            ensurePreferenceAndOpen(shop, "sms", 2);
           };
           const openEmail = (shop: AdminBodyShop) => {
-            ensurePreferenceAndOpen(shop, "email");
+            ensurePreferenceAndOpen(shop, "email", 2);
           };
 
           const openAllTabs = () => {
-            bodyShops.forEach((s) => performOpen("whatsapp", s));
-            if (bodyShops.length > 0) toast.success(t("adminQuoteLinkOpenedAll") ?? "Opened WhatsApp for each body shop. Send the message in each tab.");
+            bodyShops.forEach((s) => {
+              if (normalizeWhatsAppPhone(s.whatsappPhone)) performOpen("whatsapp", s, 1);
+            });
+            if (bodyShops.some((s) => normalizeWhatsAppPhone(s.whatsappPhone))) {
+              toast.success(t("adminQuoteLinkOpenedAllStep1") ?? "Opened WhatsApp (step 1 – no link) for each shop. After Yes/Sí, send step 2.");
+            }
           };
           return (
             <Card className="border-accent/30">
@@ -390,9 +400,7 @@ const AdminRequestDetail = () => {
                 <p className="text-sm text-muted-foreground">
                   {t("adminSendQuoteLinkChannels")}
                 </p>
-                <p className="text-xs text-muted-foreground/80">
-                  {t("adminQuoteLinkTrustNote")}
-                </p>
+                <p className="text-xs text-muted-foreground/80">{t("adminOutreachTwoStepHint")}</p>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -422,11 +430,23 @@ const AdminRequestDetail = () => {
                   )}
                 </div>
                 {quoteLink && (
-                  <div className="space-y-1.5">
-                    <span className="text-xs font-medium text-muted-foreground">{t("adminQuoteLinkPreview")}</span>
-                    <pre className="text-xs font-sans whitespace-pre-wrap break-words p-3 rounded-lg bg-muted/50 border border-border max-h-40 overflow-y-auto">
-                      {defaultMessage}
-                    </pre>
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {t("adminOutreachPreviewStep1")}
+                      </span>
+                      <pre className="text-xs font-sans whitespace-pre-wrap break-words p-3 rounded-lg bg-muted/50 border border-border max-h-36 overflow-y-auto">
+                        {introMessagePreview}
+                      </pre>
+                    </div>
+                    <div className="space-y-1.5">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {t("adminOutreachPreviewStep2")}
+                      </span>
+                      <pre className="text-xs font-sans whitespace-pre-wrap break-words p-3 rounded-lg bg-muted/50 border border-border max-h-36 overflow-y-auto">
+                        {linkMessagePreview}
+                      </pre>
+                    </div>
                   </div>
                 )}
                 {!hasShareableRef ? (
@@ -461,14 +481,26 @@ const AdminRequestDetail = () => {
                                   size="sm"
                                   variant="outline"
                                   className="border-[#25D366]/50 text-[#25D366] hover:bg-[#25D366]/10"
-                                  onClick={() => openWhatsApp(shop)}
+                                  title={t("adminOutreachStep1Title")}
+                                  onClick={() => openWhatsAppStep(shop, 1)}
                                 >
                                   <MessageCircle className="w-4 h-4 mr-1" />
-                                  WhatsApp
+                                  {t("adminWhatsAppStep1")}
                                 </Button>
                                 <Button
                                   size="sm"
                                   variant="outline"
+                                  className="border-[#25D366]/50 text-[#25D366]/70 hover:bg-[#25D366]/10"
+                                  title={t("adminOutreachStep2Title")}
+                                  onClick={() => openWhatsAppStep(shop, 2)}
+                                >
+                                  <MessageCircle className="w-4 h-4 mr-1" />
+                                  {t("adminWhatsAppStep2")}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  title={t("adminSmsStep2Title")}
                                   onClick={() => openSms(shop)}
                                 >
                                   <Smartphone className="w-4 h-4 mr-1" />
@@ -493,7 +525,7 @@ const AdminRequestDetail = () => {
                     {bodyShops.some((s) => normalizeWhatsAppPhone(s.whatsappPhone)) && (
                       <Button size="sm" variant="secondary" onClick={openAllTabs}>
                         <Send className="w-4 h-4 mr-2" />
-                        {t("adminOpenAllWhatsApp")}
+                        {t("adminOpenAllWhatsAppStep1")}
                       </Button>
                     )}
                   </>
@@ -504,7 +536,16 @@ const AdminRequestDetail = () => {
         })()}
 
         {preferenceDialogShop && (
-          <Dialog open={!!preferenceDialogShop} onOpenChange={(open) => { if (!open) { setPreferenceDialogShop(null); setPendingChannel(null); } }}>
+          <Dialog
+            open={!!preferenceDialogShop}
+            onOpenChange={(open) => {
+              if (!open) {
+                setPreferenceDialogShop(null);
+                setPendingChannel(null);
+                setPendingOutreachPhase(1);
+              }
+            }}
+          >
             <DialogContent className="max-w-sm">
               <div className="space-y-4">
                 <h2 className="text-lg font-semibold">
@@ -563,6 +604,7 @@ const AdminRequestDetail = () => {
                     onClick={() => {
                       setPreferenceDialogShop(null);
                       setPendingChannel(null);
+                      setPendingOutreachPhase(1);
                     }}
                   >
                     {t("cancel") ?? "Cancel"}

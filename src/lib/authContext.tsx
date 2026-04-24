@@ -4,7 +4,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
-  signInWithRedirect,
+  signInWithPopup,
   GoogleAuthProvider,
   OAuthProvider,
   type User as FirebaseUser,
@@ -96,13 +96,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       return;
     }
-    let didSettle = false;
+    let gotAuthEvent = false;
     const fallbackTimer = window.setTimeout(() => {
-      if (didSettle) return;
-      // Firebase dinlemesi beklenenden uzun sürerse siyah ekrana düşmemek için fallback.
+      if (gotAuthEvent) return;
+      // Hiç onAuthStateChanged gelmezse (nadir) loading'de kalmayı önle.
       // eslint-disable-next-line no-console
       console.error("AuthLoadingGuard fallback: onAuthStateChanged did not settle in time");
-      didSettle = true;
       setUser(null);
       setLoading(false);
     }, 10000);
@@ -110,9 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let unsub: (() => void) | undefined;
     try {
       unsub = onAuthStateChanged(auth, async (fbUser: FirebaseUser | null) => {
-        if (didSettle) return;
-        // Callback tetiklendi: fallback'i kapatacağız.
-        didSettle = true;
+        gotAuthEvent = true;
         window.clearTimeout(fallbackTimer);
       if (!fbUser) {
         setUser(null);
@@ -246,7 +243,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInWithGoogle = useCallback(async () => {
     if (!auth) throw new Error("Firebase is not configured");
     const provider = new GoogleAuthProvider();
-    await signInWithRedirect(auth, provider);
+    // Popup, uzun formlu akışlarda (misafir talep) sayfa yenilemeden giriş için daha güvenli.
+    await signInWithPopup(auth, provider);
   }, []);
 
   const signInWithApple = useCallback(async () => {
@@ -254,7 +252,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const provider = new OAuthProvider("apple.com");
     provider.addScope("email");
     provider.addScope("name");
-    await signInWithRedirect(auth, provider);
+    await signInWithPopup(auth, provider);
   }, []);
 
   const registerCustomer = useCallback(

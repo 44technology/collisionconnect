@@ -82,7 +82,7 @@ const AdminDashboard = () => {
             <div className="flex items-center gap-2">
               <div className="w-14 h-14 overflow-hidden rounded-2xl bg-white flex items-center justify-center">
                 <img
-                  src="/fixy-logo.png"
+                  src="/fixy-logo-transparent.png"
                   alt="Fixly"
                   className="w-full h-full object-cover object-left scale-[1.5]"
                 />

@@ -11,11 +11,11 @@ const Footer = () => {
           {/* Brand */}
           <div className="md:col-span-2">
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-14 h-14 overflow-hidden rounded-2xl bg-white flex items-center justify-center">
+              <div className="w-60 h-20 overflow-hidden rounded-xl flex items-center justify-center">
                 <img
-                  src="/fixy-logo.png"
+                  src="/fixy-logo-transparent.png"
                   alt="Fixly"
-                  className="w-full h-full object-cover object-left scale-[1.5]"
+                  className="w-full h-full object-contain"
                 />
               </div>
             </div>
@@ -39,7 +39,7 @@ const Footer = () => {
                 </a>
               </li>
               <li>
-                <Link to="/login/admin" className="text-primary-foreground/60 hover:text-accent transition-colors">
+                <Link to="/login?mode=admin" className="text-primary-foreground/60 hover:text-accent transition-colors">
                   {t("admin")}
                 </Link>
               </li>

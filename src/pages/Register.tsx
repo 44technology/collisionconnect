@@ -1,10 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Car, Mail, Lock, User, Phone, ArrowLeft } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Apple, Chrome } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/authContext";
 import { isFirebaseEnabled } from "@/lib/firebase";
@@ -12,182 +9,96 @@ import { useLanguage } from "@/lib/LanguageContext";
 
 const Register = () => {
   const { t } = useLanguage();
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    password: "",
-    confirmPassword: "",
-  });
-  const [submitting, setSubmitting] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState<"google" | "apple" | null>(null);
   const navigate = useNavigate();
-  const { registerCustomer, login } = useAuth();
+  const { login, signInWithGoogle, signInWithApple, user, loading } = useAuth();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (formData.password !== formData.confirmPassword) {
-      toast.error(t("passwordsDoNotMatch"));
-      return;
-    }
-    if (formData.password.length < 6) {
-      toast.error(t("passwordMinLength"));
-      return;
-    }
-    if (isFirebaseEnabled()) {
-      setSubmitting(true);
-      try {
-        await registerCustomer({
-          email: formData.email,
-          password: formData.password,
-          name: formData.name,
-          phone: formData.phone || undefined,
-        });
-        toast.success(t("accountCreatedWelcome"));
-        navigate("/dashboard");
-      } catch (err: unknown) {
-        const msg = err && typeof err === "object" && "message" in err ? (err as { message?: string }).message : String(err);
-        toast.error(msg ?? t("registrationFailed"));
-      } finally {
-        setSubmitting(false);
-      }
-    } else {
-      login("customer", formData.name);
+  useEffect(() => {
+    if (loading || !user) return;
+    if (user.userType === "customer") navigate("/dashboard", { replace: true });
+    else if (user.userType === "shop") navigate("/shop/dashboard", { replace: true });
+    else if (user.userType === "admin") navigate("/admin/dashboard", { replace: true });
+  }, [loading, user, navigate]);
+
+  const busy = !!oauthLoading;
+
+  const handleGoogleSignUp = async () => {
+    if (!isFirebaseEnabled()) {
+      login("customer", "Customer");
       navigate("/dashboard");
+      return;
+    }
+    try {
+      setOauthLoading("google");
+      await signInWithGoogle();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : String(err));
+      setOauthLoading(null);
     }
   };
 
-  const updateField = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+  const handleAppleSignUp = async () => {
+    if (!isFirebaseEnabled()) {
+      login("customer", "Customer");
+      navigate("/dashboard");
+      return;
+    }
+    try {
+      setOauthLoading("apple");
+      await signInWithApple();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : String(err));
+      setOauthLoading(null);
+    }
   };
 
   return (
-    <div className="min-h-screen gradient-hero flex items-center justify-center p-4 py-12">
-      <div className="w-full max-w-md animate-slide-up">
-        {/* Back button */}
-        <Link 
-          to="/" 
-          className="inline-flex items-center gap-2 text-primary-foreground/70 hover:text-primary-foreground mb-8 transition-colors"
+    <div className="min-h-screen bg-background px-5 pb-6 pt-10">
+      <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-sm flex-col animate-slide-up">
+        <div className="flex flex-1 flex-col items-center justify-center">
+          <img
+            src="/fixy-logo-transparent.png"
+            alt="Fixly"
+            className="w-72 max-w-full object-contain"
+          />
+          <p className="mt-5 text-center text-sm text-muted-foreground">
+            {t("createAccount")}
+          </p>
+          <div className="mt-8 w-full space-y-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="h-14 w-full justify-center gap-2 rounded-2xl border-border bg-card text-foreground"
+              disabled={busy}
+              onClick={handleGoogleSignUp}
+            >
+              <Chrome className="h-5 w-5" />
+              {oauthLoading === "google" ? (t("creatingAccount") ?? "Creating account...") : t("continueWithGoogle")}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="h-14 w-full justify-center gap-2 rounded-2xl border-border bg-card text-foreground"
+              disabled={busy}
+              onClick={handleAppleSignUp}
+            >
+              <Apple className="h-5 w-5" />
+              {oauthLoading === "apple" ? (t("creatingAccount") ?? "Creating account...") : t("continueWithApple")}
+            </Button>
+          </div>
+        </div>
+
+        <Button
+          type="button"
+          variant="hero"
+          size="lg"
+          className="h-14 w-full rounded-2xl"
+          onClick={() => navigate("/request/new")}
         >
-          <ArrowLeft className="w-4 h-4" />
-          {t("backToHome")}
-        </Link>
-
-        <Card className="border border-border/80 shadow-xl">
-          <CardHeader className="text-center pb-2">
-            <div className="flex justify-center mb-4">
-              <div className="w-14 h-14 gradient-accent rounded-2xl flex items-center justify-center shadow-accent">
-                <Car className="w-8 h-8 text-accent-foreground" />
-              </div>
-            </div>
-            <CardTitle className="text-2xl font-display">{t("createAccount")}</CardTitle>
-            <CardDescription>
-              {t("registerAsVehicleOwner")}
-            </CardDescription>
-          </CardHeader>
-          
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">{t("fullName")}</Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                  <Input
-                    id="name"
-                    type="text"
-                    placeholder="John Doe"
-                    value={formData.name}
-                    onChange={(e) => updateField("name", e.target.value)}
-                    className="pl-10"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="email">{t("email")}</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="example@email.com"
-                    value={formData.email}
-                    onChange={(e) => updateField("email", e.target.value)}
-                    className="pl-10"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="phone">{t("phone")}</Label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                  <Input
-                    id="phone"
-                    type="tel"
-                    placeholder="+1 (555) 123-4567"
-                    value={formData.phone}
-                    onChange={(e) => updateField("phone", e.target.value)}
-                    className="pl-10"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password">{t("password")}</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={formData.password}
-                    onChange={(e) => updateField("password", e.target.value)}
-                    className="pl-10"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">{t("confirmPassword")}</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                  <Input
-                    id="confirmPassword"
-                    type="password"
-                    placeholder="••••••••"
-                    value={formData.confirmPassword}
-                    onChange={(e) => updateField("confirmPassword", e.target.value)}
-                    className="pl-10"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-start gap-2">
-                <input type="checkbox" className="rounded border-border mt-1" required />
-                <span className="text-sm text-muted-foreground">
-                  {t("termsAndPrivacy")}
-                </span>
-              </div>
-
-              <Button type="submit" variant="hero" className="w-full" size="lg" disabled={submitting}>
-                {submitting ? t("creatingAccount") : t("register")}
-              </Button>
-            </form>
-
-            <div className="mt-6 text-center text-sm">
-              <span className="text-muted-foreground">{t("alreadyHaveAccount")} </span>
-              <Link to="/login" className="text-accent hover:underline font-medium">
-                {t("signIn")}
-              </Link>
-            </div>
-
-          </CardContent>
-        </Card>
+          {t("getStartedPhotos")}
+        </Button>
       </div>
     </div>
   );

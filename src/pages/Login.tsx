@@ -1,10 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
+import { Apple, Chrome, Lock, Mail } from "lucide-react";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Car, Mail, Lock, ArrowLeft } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/authContext";
 import { useLanguage } from "@/lib/LanguageContext";
@@ -15,167 +14,219 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<"google" | "apple" | null>(null);
+  const [searchParams] = useSearchParams();
+  const adminMode = searchParams.get("mode") === "admin";
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const { login, loginWithEmailAndPassword, signInWithGoogle, signInWithApple } = useAuth();
+  const { login, loginWithEmailAndPassword, signInWithGoogle, signInWithApple, user, loading, logout } = useAuth();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  useEffect(() => {
+    if (loading || !user) return;
+    if (adminMode) {
+      if (user.userType === "admin") navigate("/admin/dashboard", { replace: true });
+      return;
+    }
+    if (user.userType === "shop") navigate("/shop/dashboard", { replace: true });
+    else if (user.userType === "admin") navigate("/admin/dashboard", { replace: true });
+    else navigate("/dashboard", { replace: true });
+  }, [loading, user, navigate, adminMode]);
+
+  const busy = (!!oauthLoading || submitting) && !adminMode;
+
+  const handleEmailSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (isFirebaseEnabled()) {
+    if (adminMode) {
+      if (!isFirebaseEnabled()) {
+        login("admin", email.split("@")[0] || "Admin");
+        navigate("/admin/dashboard");
+        return;
+      }
       setSubmitting(true);
       try {
         const state = await loginWithEmailAndPassword(email, password);
-        if (state?.userType === "shop") navigate("/shop/dashboard");
-        else if (state?.userType === "admin") navigate("/admin/dashboard");
-        else navigate("/dashboard");
+        if (state?.userType !== "admin") {
+          toast.error(t("adminOnly") ?? "Admin access only. Sign in with an admin account.");
+          try {
+            await logout();
+          } catch {
+            // ignore
+          }
+          return;
+        }
+        navigate("/admin/dashboard", { replace: true });
       } catch (err: unknown) {
-        const msg = err && typeof err === "object" && "code" in err
-          ? (err as { code: string }).code === "auth/invalid-credential" || (err as { code: string }).code === "auth/user-not-found"
-            ? t("invalidEmailOrPassword") ?? "Invalid email or password"
-            : (err as { message?: string }).message ?? String(err)
-          : String(err);
+        const msg =
+          err && typeof err === "object" && "code" in err
+            ? (err as { code: string }).code === "auth/invalid-credential" ||
+                (err as { code: string }).code === "auth/user-not-found"
+              ? t("invalidEmailOrPassword") ?? "Invalid email or password"
+              : (err as { message?: string }).message ?? String(err)
+            : String(err);
         toast.error(msg);
       } finally {
         setSubmitting(false);
       }
-    } else {
-      login("customer", "John Doe");
+      return;
+    }
+
+    if (!isFirebaseEnabled()) {
+      login("customer", email.split("@")[0] || "Customer");
       navigate("/dashboard");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const state = await loginWithEmailAndPassword(email, password);
+      if (state?.userType === "shop") navigate("/shop/dashboard");
+      else if (state?.userType === "admin") navigate("/admin/dashboard");
+      else navigate("/dashboard");
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === "object" && "code" in err
+          ? (err as { code: string }).code === "auth/invalid-credential" ||
+              (err as { code: string }).code === "auth/user-not-found"
+            ? t("invalidEmailOrPassword") ?? "Invalid email or password"
+            : (err as { message?: string }).message ?? String(err)
+          : String(err);
+      toast.error(msg);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    if (adminMode) return;
+    if (!isFirebaseEnabled()) {
+      login("customer", "Customer");
+      navigate("/dashboard");
+      return;
+    }
+    try {
+      setOauthLoading("google");
+      await signInWithGoogle();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : String(err));
+      setOauthLoading(null);
+    }
+  };
+
+  const handleAppleSignIn = async () => {
+    if (adminMode) return;
+    if (!isFirebaseEnabled()) {
+      login("customer", "Customer");
+      navigate("/dashboard");
+      return;
+    }
+    try {
+      setOauthLoading("apple");
+      await signInWithApple();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : String(err));
+      setOauthLoading(null);
     }
   };
 
   return (
-    <div className="min-h-screen gradient-hero flex items-center justify-center p-4">
-      <div className="w-full max-w-md animate-slide-up">
-        {/* Back button */}
-        <Link 
-          to="/" 
-          className="inline-flex items-center gap-2 text-primary-foreground/70 hover:text-primary-foreground mb-8 transition-colors"
+    <div className="min-h-screen bg-background px-5 pb-6 pt-10">
+      <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-sm flex-col animate-slide-up">
+        <div className="flex flex-1 flex-col items-center justify-center">
+          <img
+            src="/fixy-logo-transparent.png"
+            alt="Fixly"
+            className="w-72 max-w-full object-contain"
+          />
+          <p className="mt-5 text-center text-sm text-muted-foreground">
+            {adminMode ? t("adminLoginDesc") : t("signInToAccount")}
+          </p>
+          <form onSubmit={handleEmailSubmit} className="mt-6 w-full space-y-3">
+            <div className="space-y-2 text-left">
+              <Label htmlFor="login-email">{t("email")}</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="login-email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="h-12 rounded-2xl pl-10"
+                  required
+                />
+              </div>
+            </div>
+            <div className="space-y-2 text-left">
+              <Label htmlFor="login-password">{t("password")}</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="login-password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="h-12 rounded-2xl pl-10"
+                  required
+                />
+              </div>
+            </div>
+            <Button
+              type="submit"
+              variant="secondary"
+              size="lg"
+              className="h-12 w-full rounded-2xl"
+              disabled={adminMode ? submitting : busy}
+            >
+              {submitting ? (t("signingIn") ?? "Signing in...") : adminMode ? t("signInAsAdmin") : t("signIn")}
+            </Button>
+          </form>
+          {adminMode ? (
+            <div className="mt-6 w-full text-center text-sm text-muted-foreground">
+              <Link to="/login" className="font-medium text-foreground hover:underline">
+                {t("backToCustomerSignIn")}
+              </Link>
+            </div>
+          ) : (
+            <>
+          <div className="mt-5 w-full text-center text-xs text-muted-foreground">{t("oauthContinueDivider")}</div>
+          <div className="mt-3 w-full space-y-3">
+            <Button
+              type="button"
+              variant="default"
+              size="lg"
+              className="h-14 w-full justify-center gap-2 rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
+              disabled={busy}
+              onClick={handleGoogleSignIn}
+            >
+              <Chrome className="h-5 w-5" />
+              {oauthLoading === "google" ? (t("signingIn") ?? "Signing in...") : t("continueWithGoogle")}
+            </Button>
+            <Button
+              type="button"
+              variant="default"
+              size="lg"
+              className="h-14 w-full justify-center gap-2 rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
+              disabled={busy}
+              onClick={handleAppleSignIn}
+            >
+              <Apple className="h-5 w-5" />
+              {oauthLoading === "apple" ? (t("signingIn") ?? "Signing in...") : t("continueWithApple")}
+            </Button>
+          </div>
+            </>
+          )}
+        </div>
+
+        {!adminMode ? (
+        <Button
+          type="button"
+          variant="hero"
+          size="lg"
+          className="h-14 w-full rounded-2xl"
+          onClick={() => navigate("/request/new")}
         >
-          <ArrowLeft className="w-4 h-4" />
-          {t("backToHome")}
-        </Link>
-
-        <Card className="border border-border/80 shadow-xl">
-          <CardHeader className="text-center pb-2">
-            <div className="flex justify-center mb-4">
-              <div className="w-14 h-14 gradient-accent rounded-2xl flex items-center justify-center shadow-accent">
-                <Car className="w-8 h-8 text-accent-foreground" />
-              </div>
-            </div>
-            <CardTitle className="text-2xl font-display">{t("welcomeBack")}</CardTitle>
-            <CardDescription>
-              {t("signInToAccount")}
-            </CardDescription>
-          </CardHeader>
-          
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">{t("email")}</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="example@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password">{t("password")}</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between text-sm">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" className="rounded border-border" />
-                  <span className="text-muted-foreground">{t("rememberMe")}</span>
-                </label>
-                <a href="#" className="text-accent hover:underline">
-                  {t("forgotPassword")}
-                </a>
-              </div>
-
-              <Button type="submit" variant="hero" className="w-full" size="lg" disabled={submitting}>
-                {submitting ? (t("signingIn") ?? "Signing in...") : t("signIn")}
-              </Button>
-
-              {isFirebaseEnabled() && (
-                <div className="space-y-3 mt-4">
-                  <div className="text-center text-xs text-muted-foreground">or continue with</div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full"
-                    size="lg"
-                    disabled={!!oauthLoading || submitting}
-                    onClick={async () => {
-                      try {
-                        setOauthLoading("google");
-                        await signInWithGoogle();
-                      } catch (err: unknown) {
-                        const msg = err instanceof Error ? err.message : String(err);
-                        toast.error(msg);
-                        setOauthLoading(null);
-                      }
-                    }}
-                  >
-                    Continue with Google
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full"
-                    size="lg"
-                    disabled={!!oauthLoading || submitting}
-                    onClick={async () => {
-                      try {
-                        setOauthLoading("apple");
-                        await signInWithApple();
-                      } catch (err: unknown) {
-                        const msg = err instanceof Error ? err.message : String(err);
-                        toast.error(msg);
-                        setOauthLoading(null);
-                      }
-                    }}
-                  >
-                    Continue with Apple
-                  </Button>
-                </div>
-              )}
-            </form>
-
-            <div className="mt-6 text-center text-sm">
-              <span className="text-muted-foreground">{t("noAccount")} </span>
-              <Link to="/register" className="text-accent hover:underline font-medium">
-                {t("register")}
-              </Link>
-            </div>
-
-            <div className="mt-4 pt-4 border-t border-border text-center">
-              <Link to="/login/admin" className="block text-sm text-muted-foreground hover:text-accent transition-colors">
-                {t("adminLogin")} →
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
+          {t("getStartedPhotos")}
+        </Button>
+        ) : null}
       </div>
     </div>
   );

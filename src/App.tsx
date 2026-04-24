@@ -11,8 +11,6 @@ import { LanguageProvider } from "@/lib/LanguageContext";
 import { NotificationProvider } from "@/lib/notificationContext";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
-import LoginAdmin from "./pages/LoginAdmin";
-import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import NewRequest from "./pages/NewRequest";
 import RequestSubmitted from "./pages/RequestSubmitted";
@@ -103,9 +101,7 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/login" element={<Login />} />
               <Route path="/login/shop" element={<Login />} />
-              <Route path="/login/admin" element={<LoginAdmin />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/register/shop" element={<Navigate to="/" replace />} />
+              <Route path="/login/admin" element={<Navigate to="/login?mode=admin" replace />} />
               {/* GUEST: Quote alma (giriş gerekmiyor) */}
               <Route path="/request/new" element={<NewRequest />} />
               <Route path="/request/submitted" element={<RequestSubmitted />} />
