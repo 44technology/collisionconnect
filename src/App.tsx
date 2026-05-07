@@ -84,6 +84,22 @@ function RequireAuth({ allowed }: { allowed?: UserType[] }) {
   return <Outlet />;
 }
 
+function PublicEntry() {
+  const { user } = useAuth();
+  if (user) {
+    return <Navigate to={getHomePathForRole(user.userType)} replace />;
+  }
+  return <Index />;
+}
+
+function PublicLogin() {
+  const { user } = useAuth();
+  if (user) {
+    return <Navigate to={getHomePathForRole(user.userType)} replace />;
+  }
+  return <Login />;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -98,10 +114,10 @@ const App = () => (
         <HashRouter>
           <AuthLoadingGuard>
             <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/login/shop" element={<Login />} />
-              <Route path="/login/admin" element={<Navigate to="/login?mode=admin" replace />} />
+              <Route path="/" element={<PublicEntry />} />
+              <Route path="/login" element={<PublicLogin />} />
+              <Route path="/login/shop" element={<PublicLogin />} />
+              <Route path="/login/admin" element={<Navigate to="/login" replace />} />
               {/* GUEST: Quote alma (giriş gerekmiyor) */}
               <Route path="/request/new" element={<NewRequest />} />
               <Route path="/request/submitted" element={<RequestSubmitted />} />

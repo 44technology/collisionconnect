@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
-import { Apple, Chrome, Lock, Mail } from "lucide-react";
-import { useNavigate, useSearchParams, Link } from "react-router-dom";
+import { Apple, ArrowLeft, Chrome, Loader2, Lock, Mail } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
@@ -14,61 +14,50 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<"google" | "apple" | null>(null);
-  const [searchParams] = useSearchParams();
-  const adminMode = searchParams.get("mode") === "admin";
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const { login, loginWithEmailAndPassword, signInWithGoogle, signInWithApple, user, loading, logout } = useAuth();
+  const { login, loginWithEmailAndPassword, signInWithGoogle, signInWithApple, user, loading } = useAuth();
+
+  const getAuthErrorMessage = (err: unknown): string => {
+    const fallback = err instanceof Error ? err.message : String(err);
+    const code =
+      err && typeof err === "object" && "code" in err && typeof (err as { code?: unknown }).code === "string"
+        ? (err as { code: string }).code
+        : "";
+
+    if (code === "permission-denied") return "Permission denied while loading user profile.";
+    if (code === "auth/network-request-failed") return t("networkError") ?? "Network error. Please check connection.";
+    if (code === "auth/invalid-api-key" || code === "auth/app-not-authorized") {
+      return "Firebase config is not authorized for this app build.";
+    }
+    if (code === "auth/operation-not-allowed") return "This login method is not enabled in Firebase.";
+    if (code === "invalidEmailOrPassword") return t("invalidEmailOrPassword") ?? "Invalid email or password";
+    if (code === "tooManyAttempts") return t("tooManyAttempts") ?? "Too many attempts. Please try later.";
+    if (code === "userDisabled") return t("userDisabled") ?? "This account is disabled.";
+    if (code === "profileLoadTimeout") {
+      return "Login succeeded but profile loading timed out. Please try again.";
+    }
+    if (code === "authSignInTimeout") {
+      return "Sign-in request timed out. Check network/VPN and try again.";
+    }
+    if (code === "profileWriteTimeout") {
+      return "Login succeeded but saving your profile timed out. Please try again.";
+    }
+
+    return fallback;
+  };
 
   useEffect(() => {
     if (loading || !user) return;
-    if (adminMode) {
-      if (user.userType === "admin") navigate("/admin/dashboard", { replace: true });
-      return;
-    }
     if (user.userType === "shop") navigate("/shop/dashboard", { replace: true });
     else if (user.userType === "admin") navigate("/admin/dashboard", { replace: true });
     else navigate("/dashboard", { replace: true });
-  }, [loading, user, navigate, adminMode]);
+  }, [loading, user, navigate]);
 
-  const busy = (!!oauthLoading || submitting) && !adminMode;
+  const oauthBusy = !!oauthLoading || submitting;
 
   const handleEmailSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (adminMode) {
-      if (!isFirebaseEnabled()) {
-        login("admin", email.split("@")[0] || "Admin");
-        navigate("/admin/dashboard");
-        return;
-      }
-      setSubmitting(true);
-      try {
-        const state = await loginWithEmailAndPassword(email, password);
-        if (state?.userType !== "admin") {
-          toast.error(t("adminOnly") ?? "Admin access only. Sign in with an admin account.");
-          try {
-            await logout();
-          } catch {
-            // ignore
-          }
-          return;
-        }
-        navigate("/admin/dashboard", { replace: true });
-      } catch (err: unknown) {
-        const msg =
-          err && typeof err === "object" && "code" in err
-            ? (err as { code: string }).code === "auth/invalid-credential" ||
-                (err as { code: string }).code === "auth/user-not-found"
-              ? t("invalidEmailOrPassword") ?? "Invalid email or password"
-              : (err as { message?: string }).message ?? String(err)
-            : String(err);
-        toast.error(msg);
-      } finally {
-        setSubmitting(false);
-      }
-      return;
-    }
-
     if (!isFirebaseEnabled()) {
       login("customer", email.split("@")[0] || "Customer");
       navigate("/dashboard");
@@ -76,26 +65,17 @@ const Login = () => {
     }
     setSubmitting(true);
     try {
-      const state = await loginWithEmailAndPassword(email, password);
-      if (state?.userType === "shop") navigate("/shop/dashboard");
-      else if (state?.userType === "admin") navigate("/admin/dashboard");
-      else navigate("/dashboard");
+      await loginWithEmailAndPassword(email, password);
     } catch (err: unknown) {
-      const msg =
-        err && typeof err === "object" && "code" in err
-          ? (err as { code: string }).code === "auth/invalid-credential" ||
-              (err as { code: string }).code === "auth/user-not-found"
-            ? t("invalidEmailOrPassword") ?? "Invalid email or password"
-            : (err as { message?: string }).message ?? String(err)
-          : String(err);
-      toast.error(msg);
+      // eslint-disable-next-line no-console
+      console.error("Sign-in error:", err);
+      toast.error(getAuthErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleGoogleSignIn = async () => {
-    if (adminMode) return;
     if (!isFirebaseEnabled()) {
       login("customer", "Customer");
       navigate("/dashboard");
@@ -105,13 +85,14 @@ const Login = () => {
       setOauthLoading("google");
       await signInWithGoogle();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : String(err));
+      // eslint-disable-next-line no-console
+      console.error("Google sign-in error:", err);
+      toast.error(getAuthErrorMessage(err));
       setOauthLoading(null);
     }
   };
 
   const handleAppleSignIn = async () => {
-    if (adminMode) return;
     if (!isFirebaseEnabled()) {
       login("customer", "Customer");
       navigate("/dashboard");
@@ -121,24 +102,35 @@ const Login = () => {
       setOauthLoading("apple");
       await signInWithApple();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : String(err));
+      // eslint-disable-next-line no-console
+      console.error("Apple sign-in error:", err);
+      toast.error(getAuthErrorMessage(err));
       setOauthLoading(null);
     }
   };
 
   return (
-    <div className="min-h-screen bg-background px-5 pb-6 pt-10">
-      <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-sm flex-col animate-slide-up">
-        <div className="flex flex-1 flex-col items-center justify-center">
-          <img
-            src="/fixy-logo-transparent.png"
-            alt="Fixly"
-            className="w-72 max-w-full object-contain"
-          />
-          <p className="mt-5 text-center text-sm text-muted-foreground">
-            {adminMode ? t("adminLoginDesc") : t("signInToAccount")}
-          </p>
-          <form onSubmit={handleEmailSubmit} className="mt-6 w-full space-y-3">
+    <div className="app-header-pt app-safe-pb flex min-h-svh flex-col bg-background px-5">
+      <div className="mx-auto flex w-full max-w-sm flex-1 flex-col items-center justify-start py-5 animate-slide-up">
+        <div className="mb-3 flex w-full justify-start">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 rounded-full"
+            onClick={() => navigate("/")}
+            aria-label={t("backToHome")}
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+        </div>
+        <img
+          src="/fixy-logo-transparent.png"
+          alt="Fixly"
+          className="mt-1 w-52 max-w-full object-contain drop-shadow-[0_10px_24px_rgba(0,0,0,0.35)]"
+        />
+        <div className="mt-3 w-full rounded-3xl border border-border/70 bg-card/70 p-5 shadow-[0_18px_44px_rgba(0,0,0,0.36)] backdrop-blur-xl">
+          <form onSubmit={handleEmailSubmit} className="w-full space-y-3">
             <div className="space-y-2 text-left">
               <Label htmlFor="login-email">{t("email")}</Label>
               <div className="relative">
@@ -149,7 +141,7 @@ const Login = () => {
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="h-12 rounded-2xl pl-10"
+                  className="h-11 rounded-xl border-border/70 bg-background/70 pl-10"
                   required
                 />
               </div>
@@ -164,7 +156,7 @@ const Login = () => {
                   autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="h-12 rounded-2xl pl-10"
+                  className="h-11 rounded-xl border-border/70 bg-background/70 pl-10"
                   required
                 />
               </div>
@@ -173,60 +165,47 @@ const Login = () => {
               type="submit"
               variant="secondary"
               size="lg"
-              className="h-12 w-full rounded-2xl"
-              disabled={adminMode ? submitting : busy}
+              className="h-11 w-full rounded-xl"
+              disabled={submitting}
             >
-              {submitting ? (t("signingIn") ?? "Signing in...") : adminMode ? t("signInAsAdmin") : t("signIn")}
+              {submitting ? (t("signingIn") ?? "Signing in...") : t("signIn")}
             </Button>
           </form>
-          {adminMode ? (
-            <div className="mt-6 w-full text-center text-sm text-muted-foreground">
-              <Link to="/login" className="font-medium text-foreground hover:underline">
-                {t("backToCustomerSignIn")}
-              </Link>
-            </div>
-          ) : (
-            <>
-          <div className="mt-5 w-full text-center text-xs text-muted-foreground">{t("oauthContinueDivider")}</div>
-          <div className="mt-3 w-full space-y-3">
+
+          <div className="mt-5 w-full text-center text-[11px] tracking-wide text-muted-foreground/90">
+            {t("oauthContinueDivider")}
+          </div>
+          <div className="mt-3 grid w-full grid-cols-2 gap-2.5">
             <Button
               type="button"
               variant="default"
-              size="lg"
-              className="h-14 w-full justify-center gap-2 rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
-              disabled={busy}
+              className="h-10 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
+              disabled={oauthBusy}
               onClick={handleGoogleSignIn}
+              aria-label={t("continueWithGoogle")}
             >
-              <Chrome className="h-5 w-5" />
-              {oauthLoading === "google" ? (t("signingIn") ?? "Signing in...") : t("continueWithGoogle")}
+              {oauthLoading === "google" ? (
+                <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+              ) : (
+                <Chrome className="h-4 w-4 shrink-0" aria-hidden />
+              )}
             </Button>
             <Button
               type="button"
               variant="default"
-              size="lg"
-              className="h-14 w-full justify-center gap-2 rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
-              disabled={busy}
+              className="h-10 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
+              disabled={oauthBusy}
               onClick={handleAppleSignIn}
+              aria-label={t("continueWithApple")}
             >
-              <Apple className="h-5 w-5" />
-              {oauthLoading === "apple" ? (t("signingIn") ?? "Signing in...") : t("continueWithApple")}
+              {oauthLoading === "apple" ? (
+                <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+              ) : (
+                <Apple className="h-4 w-4 shrink-0" aria-hidden />
+              )}
             </Button>
           </div>
-            </>
-          )}
         </div>
-
-        {!adminMode ? (
-        <Button
-          type="button"
-          variant="hero"
-          size="lg"
-          className="h-14 w-full rounded-2xl"
-          onClick={() => navigate("/request/new")}
-        >
-          {t("getStartedPhotos")}
-        </Button>
-        ) : null}
       </div>
     </div>
   );

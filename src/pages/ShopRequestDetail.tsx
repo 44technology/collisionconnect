@@ -31,6 +31,7 @@ import { getShopRequestById } from "@/lib/shopRequests";
 import { useBids } from "@/lib/bidsStore";
 import { useSubscription } from "@/lib/subscriptionStore";
 import { useLanguage } from "@/lib/LanguageContext";
+import { useAuth } from "@/lib/authContext";
 import { toast } from "sonner";
 
 const ShopRequestDetail = () => {
@@ -38,6 +39,7 @@ const ShopRequestDetail = () => {
   const location = useLocation();
   const { id } = useParams<{ id: string }>();
   const { t } = useLanguage();
+  const { logout } = useAuth();
   const { addBid, getWinningBidAmount } = useBids();
   const { canPlaceBid, recordBidPlaced, freeBidsRemaining, isSubscribed } = useSubscription();
   const [bidAmount, setBidAmount] = useState("");
@@ -79,46 +81,47 @@ const ShopRequestDetail = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="bg-primary text-primary-foreground sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10"
-                onClick={() => navigate("/shop/dashboard")}
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                {t("back")}
-              </Button>
-              <div className="flex items-center gap-2">
-                <div className="w-10 h-10 bg-primary-foreground/10 rounded-xl flex items-center justify-center">
-                  <Building2 className="w-6 h-6" />
-                </div>
-                <div>
-                  <span className="text-xl font-display font-bold">
-                    Collision <span className="text-accent">Collect</span>
-                  </span>
-                  <span className="text-xs block text-primary-foreground/60">{t("bodyShopPanel")}</span>
-                </div>
+    <div className="flex min-h-[100dvh] min-h-screen flex-col bg-background">
+      <header className="sticky top-0 z-50 shrink-0 border-b border-primary/20 bg-primary text-primary-foreground">
+        <div className="app-header-pt container mx-auto flex max-w-5xl items-center justify-between gap-2 px-4 pb-3">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="shrink-0 rounded-full text-primary-foreground/90 hover:bg-primary-foreground/10 hover:text-primary-foreground"
+              onClick={() => navigate("/shop/dashboard")}
+              aria-label={t("back")}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-foreground/10">
+                <Building2 className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate font-display text-sm font-bold sm:text-base">Fixly</p>
+                <p className="truncate text-xs text-primary-foreground/65">{t("bodyShopPanel")}</p>
               </div>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"
-              onClick={() => navigate("/")}
-            >
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
-            </Button>
           </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="shrink-0 text-primary-foreground/85 hover:bg-primary-foreground/10 hover:text-primary-foreground"
+            onClick={async () => {
+              await logout();
+              navigate("/login", { replace: true });
+            }}
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            {t("logout")}
+          </Button>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-6">
+      <main className="app-safe-pb container mx-auto flex-1 overflow-y-auto overscroll-y-contain px-4 py-6">
         <div className="max-w-4xl mx-auto space-y-4">
           {/* Vehicle & request info */}
           <Card>

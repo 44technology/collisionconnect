@@ -5,6 +5,7 @@ import { Building2, Car, Clock, CheckCircle, DollarSign, LogOut, Eye, MapPin, Ca
 import { useNavigate, useLocation } from "react-router-dom";
 import { useBids } from "@/lib/bidsStore";
 import { useLanguage } from "@/lib/LanguageContext";
+import { useAuth } from "@/lib/authContext";
 import { shopRequestsDetail } from "@/lib/shopRequests";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -72,6 +73,7 @@ const ShopDashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useLanguage();
+  const { logout } = useAuth();
   const { getWinningBidAmount } = useBids();
   const [requests, setRequests] = useState<ShopRequest[]>(initialDemoRequests);
   const [listFilter, setListFilter] = useState<ListFilter>("all");
@@ -139,62 +141,64 @@ const ShopDashboard = () => {
   })();
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="bg-primary text-primary-foreground sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-14 h-14 overflow-hidden rounded-2xl bg-white flex items-center justify-center">
-                <img
-                  src="/fixy-logo-transparent.png"
-                  alt="Fixly"
-                  className="w-full h-full object-cover object-left scale-[1.5]"
-                />
-              </div>
-              <div>
-                <span className="text-xs block text-primary-foreground/60">{t("bodyShopPanel")}</span>
-              </div>
+    <div className="flex min-h-[100dvh] min-h-screen flex-col bg-background">
+      <header className="sticky top-0 z-50 shrink-0 border-b border-primary/20 bg-primary text-primary-foreground">
+        <div className="app-header-pt container mx-auto px-4 pb-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-2">
+              <img
+                src="/fixy-logo-transparent.png"
+                alt="Fixly"
+                className="h-9 w-auto max-w-[9rem] shrink-0 object-contain object-left sm:h-10 sm:max-w-[10rem]"
+              />
+              <span className="truncate text-xs text-primary-foreground/70">{t("bodyShopPanel")}</span>
             </div>
-            
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-primary-foreground/70 hidden md:block">
+
+            <div className="flex flex-wrap items-center justify-end gap-1 sm:gap-2">
+              <span className="hidden text-sm text-primary-foreground/70 md:inline">
                 <span className="font-medium text-primary-foreground">ABC Body Shop</span>
               </span>
               <Button
+                type="button"
                 variant="ghost"
                 size="sm"
-                className="text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"
+                className="text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground"
                 onClick={() => navigate("/shop/subscription")}
               >
-                <CreditCard className="w-4 h-4 mr-2" />
-                {t("subscription")}
+                <CreditCard className="mr-1.5 h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">{t("subscription")}</span>
               </Button>
               <Button
+                type="button"
                 variant="ghost"
                 size="sm"
-                className="text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"
+                className="text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground"
                 onClick={() => navigate("/shop/preferences")}
               >
-                <Wrench className="w-4 h-4 mr-2" />
-                {t("shopPreferencesTitle")}
+                <Wrench className="mr-1.5 h-4 w-4 sm:mr-2" />
+                <span className="max-w-[7rem] truncate sm:max-w-none">{t("shopPreferencesTitle")}</span>
               </Button>
               <Button
+                type="button"
                 variant="ghost"
                 size="sm"
-                className="text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"
+                className="text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground"
                 onClick={() => navigate("/settings")}
               >
-                <Settings className="w-4 h-4 mr-2" />
+                <Settings className="mr-1.5 h-4 w-4 sm:mr-2" />
                 {t("settings")}
               </Button>
-              <Button 
-                variant="ghost" 
+              <Button
+                type="button"
+                variant="ghost"
                 size="sm"
-                className="text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"
-                onClick={() => navigate("/")}
+                className="text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground"
+                onClick={async () => {
+                  await logout();
+                  navigate("/login", { replace: true });
+                }}
               >
-                <LogOut className="w-4 h-4 mr-2" />
+                <LogOut className="mr-1.5 h-4 w-4 sm:mr-2" />
                 {t("logout")}
               </Button>
             </div>
@@ -202,8 +206,7 @@ const ShopDashboard = () => {
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-6">
+      <main className="app-safe-pb container mx-auto flex-1 overflow-y-auto overscroll-y-contain px-4 py-6">
         {/* Stats — tıklanınca liste filtrelenir */}
         <div className="grid grid-cols-3 gap-3 mb-6">
           <Card

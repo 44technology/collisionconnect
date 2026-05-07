@@ -1,5 +1,13 @@
+import { Capacitor } from "@capacitor/core";
 import { initializeApp } from "firebase/app";
-import { getAuth, setPersistence, browserLocalPersistence } from "firebase/auth";
+import {
+  browserLocalPersistence,
+  getAuth,
+  inMemoryPersistence,
+  indexedDBLocalPersistence,
+  initializeAuth,
+  setPersistence,
+} from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
@@ -19,13 +27,32 @@ const hasConfig =
   firebaseConfig.authDomain;
 
 const app = hasConfig ? initializeApp(firebaseConfig) : null;
-export const auth = app ? getAuth(app) : null;
-// Tarayıcıyı kapatıp açana kadar oturum sürsün (logout yapılana kadar).
-if (auth) {
-  void setPersistence(auth, browserLocalPersistence).catch(() => {
+
+function initAuthForCurrentPlatform() {
+  if (!app) return null;
+
+  // Capacitor iOS/Android WebView: `getAuth` + `setPersistence` bazı ortamlarda auth isteklerinin
+  // takılmasına yol açabiliyor. `initializeAuth` ile persistence'ı baştan seçmek daha güvenilir.
+  if (Capacitor.isNativePlatform()) {
+    try {
+      return initializeAuth(app, {
+        persistence: [indexedDBLocalPersistence, browserLocalPersistence, inMemoryPersistence],
+      });
+    } catch {
+      // Eğer auth zaten initialize edilmişse (hot reload vb.) `getAuth` ile devam et.
+      return getAuth(app);
+    }
+  }
+
+  const a = getAuth(app);
+  // Web: tarayıcıyı kapatıp açana kadar oturum sürsün (logout yapılana kadar).
+  void setPersistence(a, browserLocalPersistence).catch(() => {
     // Kalıcılık ayarı başarısız olsa bile auth çalışmaya devam eder.
   });
+  return a;
 }
+
+export const auth = initAuthForCurrentPlatform();
 export const db = app ? getFirestore(app) : null;
 export const storage = app && firebaseConfig.storageBucket ? getStorage(app) : null;
 

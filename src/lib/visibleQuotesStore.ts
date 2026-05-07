@@ -28,11 +28,14 @@ export function getVisibleQuoteIds(requestRefId: string): string[] {
   return load()[requestRefId] ?? [];
 }
 
-/** Async: Firestore when enabled. Use in UI. */
+/**
+ * Firestore açıkken yalnızca Firestore (admin’in kaydettiği görünürlük).
+ * Boş dizi = filtre yok / meta yok — RequestDetail tüm teklifleri gösterir.
+ * Önceki hata: Firestore boşken localStorage’a düşülüyordu (cihazlar arası tutarsızlık).
+ */
 export async function getVisibleQuoteIdsAsync(requestRefId: string): Promise<string[]> {
   if (isFirebaseEnabled()) {
-    const ids = await getVisibleQuoteIdsFromFirestore(requestRefId);
-    if (ids.length > 0) return ids;
+    return getVisibleQuoteIdsFromFirestore(requestRefId);
   }
   return getVisibleQuoteIds(requestRefId);
 }

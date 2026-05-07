@@ -221,31 +221,25 @@ const QuotePage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="bg-card border-b border-border sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <Link
-              to="/"
-              className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              {t("backToHome")}
-            </Link>
-            <div className="flex items-center gap-2">
-              <div className="w-14 h-14 overflow-hidden rounded-2xl bg-white flex items-center justify-center">
-                <img
-                  src="/fixy-logo-transparent.png"
-                  alt="Fixly"
-                  className="w-full h-full object-cover object-left scale-[1.5]"
-                />
-              </div>
-            </div>
-          </div>
+    <div className="flex min-h-[100dvh] min-h-screen flex-col bg-background">
+      <header className="sticky top-0 z-50 shrink-0 border-b border-border/80 bg-card/90 backdrop-blur-xl supports-[backdrop-filter]:bg-card/80">
+        <div className="app-header-pt container mx-auto flex max-w-xl items-center justify-between gap-3 px-4 pb-3">
+          <Link
+            to="/"
+            className="inline-flex min-w-0 shrink items-center gap-2 text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ArrowLeft className="h-5 w-5 shrink-0" />
+            <span className="truncate text-sm font-medium sm:text-base">{t("backToHome")}</span>
+          </Link>
+          <img
+            src="/fixy-logo-transparent.png"
+            alt="Fixly"
+            className="h-9 w-auto max-w-[42%] shrink-0 object-contain object-right sm:h-10 sm:max-w-[45%]"
+          />
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8 max-w-xl">
+      <main className="app-safe-pb container mx-auto max-w-xl flex-1 overflow-y-auto overscroll-y-contain px-4 py-8">
         <div className="mb-4 p-3 rounded-lg bg-primary/10 border border-primary/20 text-sm text-foreground">
           {t("quotePageTrustBanner")}
         </div>

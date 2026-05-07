@@ -41,6 +41,7 @@ const RegisterShop = () => {
     notes: "",
   });
   const [submitting, setSubmitting] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const navigate = useNavigate();
   const { registerShop, login } = useAuth();
 
@@ -65,6 +66,10 @@ const RegisterShop = () => {
     }
     if (formData.password.length < 6) {
       toast.error(t("passwordMinLength"));
+      return;
+    }
+    if (!termsAccepted) {
+      toast.error(t("termsRequired"));
       return;
     }
     if (isFirebaseEnabled()) {
@@ -329,14 +334,18 @@ const RegisterShop = () => {
                 </div>
               </div>
 
-              <div className="flex items-start gap-2">
-                <input type="checkbox" className="rounded border-border mt-1" required />
-                <span className="text-sm text-muted-foreground">
-                  {t("termsAndBusiness")}
-                </span>
-              </div>
+              <label htmlFor="shop-terms" className="flex cursor-pointer items-start gap-3 rounded-lg border border-border/50 bg-muted/20 p-3">
+                <Checkbox
+                  id="shop-terms"
+                  checked={termsAccepted}
+                  onCheckedChange={(v) => setTermsAccepted(v === true)}
+                  className="mt-0.5"
+                  aria-required
+                />
+                <span className="text-sm leading-snug text-muted-foreground">{t("termsAndPrivacy")}</span>
+              </label>
 
-              <Button type="submit" className="w-full" size="lg" disabled={submitting}>
+              <Button type="submit" className="w-full" size="lg" disabled={submitting || !termsAccepted}>
                 {submitting ? t("creatingAccount") : t("register")}
               </Button>
             </form>

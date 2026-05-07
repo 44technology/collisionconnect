@@ -150,10 +150,10 @@ const AdminBodyShops = () => {
   if (!isAdmin) return null;
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="bg-card border-b border-border sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+    <div className="flex min-h-[100dvh] min-h-screen flex-col bg-background">
+      <header className="sticky top-0 z-50 shrink-0 border-b border-border bg-card/95 backdrop-blur-xl supports-[backdrop-filter]:bg-card/85">
+        <div className="app-header-pt container mx-auto px-4 pb-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <div className="w-10 h-10 bg-accent/20 rounded-xl flex items-center justify-center">
                 <Shield className="w-6 h-6 text-accent" />
@@ -171,7 +171,7 @@ const AdminBodyShops = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-6">
+      <main className="app-safe-pb container mx-auto flex-1 overflow-y-auto overscroll-y-contain px-4 py-6">
         <h1 className="text-lg font-display font-bold mb-2">{t("adminOurCollisionCenters")}</h1>
         <p className="text-sm text-muted-foreground mb-6">{t("adminOurCollisionCentersHint")}</p>
 

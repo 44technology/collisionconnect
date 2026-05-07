@@ -11,10 +11,12 @@ const buttonVariants = cva(
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-primary/90 active:scale-[0.98]",
         destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90 active:scale-[0.98]",
-        outline: "border-2 border-primary bg-transparent text-primary hover:bg-primary hover:text-primary-foreground active:scale-[0.98]",
+        outline:
+          "border-2 border-white/25 bg-transparent text-white hover:bg-white/10 hover:text-white hover:border-white/40 active:scale-[0.98] [&_svg]:text-white",
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80 active:scale-[0.98]",
-        ghost: "hover:bg-accent/10 hover:text-accent active:scale-[0.98]",
-        link: "text-primary underline-offset-4 hover:underline",
+        ghost:
+          "text-white hover:bg-white/10 hover:text-accent active:scale-[0.98] [&_svg]:text-white",
+        link: "text-accent underline-offset-4 hover:underline hover:text-accent/90 [&_svg]:text-accent",
         hero: "gradient-accent text-accent-foreground shadow-accent hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] font-bold",
         heroOutline: "border-2 border-accent bg-transparent text-accent hover:bg-accent hover:text-accent-foreground active:scale-[0.98]",
         success: "bg-success text-success-foreground hover:bg-success/90 active:scale-[0.98]",

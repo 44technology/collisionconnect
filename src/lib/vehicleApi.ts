@@ -63,7 +63,7 @@ function formatMakeName(raw: string): string {
 
 /** Car/SUV makes only (Passenger Car + Multipurpose Passenger Vehicle), deduped and sorted. */
 export async function getAllMakes(): Promise<MakeItem[]> {
-  const types = ["Passenger%20Car", "Multipurpose%20Passenger%20Vehicle"];
+  const types = ["Passenger%20Car", "Multipurpose%20Passenger%20Vehicle", "Truck"];
   const byId = new Map<number, string>();
   for (const vehicleType of types) {
     try {

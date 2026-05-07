@@ -62,31 +62,30 @@ const ShopSubscription = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="bg-primary text-primary-foreground sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10"
-              onClick={() => navigate("/shop/dashboard")}
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              {t("back")}
-            </Button>
-            <div className="flex items-center gap-2">
-              <Building2 className="w-6 h-6" />
-              <span className="text-xl font-display font-bold">
-                Collision <span className="text-accent">Collect</span>
-              </span>
-              <span className="text-sm text-primary-foreground/70">— {t("subscription")}</span>
+    <div className="flex min-h-[100dvh] min-h-screen flex-col bg-background">
+      <header className="sticky top-0 z-50 shrink-0 border-b border-primary/20 bg-primary text-primary-foreground">
+        <div className="app-header-pt container mx-auto flex max-w-md items-center gap-2 px-4 pb-3">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="shrink-0 rounded-full text-primary-foreground/90 hover:bg-primary-foreground/10 hover:text-primary-foreground"
+            onClick={() => navigate("/shop/dashboard")}
+            aria-label={t("back")}
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <Building2 className="h-5 w-5 shrink-0" />
+            <div className="min-w-0">
+              <p className="truncate font-display text-sm font-bold sm:text-base">Fixly</p>
+              <p className="truncate text-xs text-primary-foreground/70">{t("subscription")}</p>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8 max-w-md">
+      <main className="app-safe-pb container mx-auto max-w-md flex-1 overflow-y-auto overscroll-y-contain px-4 py-8">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

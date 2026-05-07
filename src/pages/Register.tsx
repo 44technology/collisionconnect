@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Apple, Chrome } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -10,6 +11,7 @@ import { useLanguage } from "@/lib/LanguageContext";
 const Register = () => {
   const { t } = useLanguage();
   const [oauthLoading, setOauthLoading] = useState<"google" | "apple" | null>(null);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const navigate = useNavigate();
   const { login, signInWithGoogle, signInWithApple, user, loading } = useAuth();
 
@@ -21,8 +23,13 @@ const Register = () => {
   }, [loading, user, navigate]);
 
   const busy = !!oauthLoading;
+  const actionsDisabled = busy || !termsAccepted;
 
   const handleGoogleSignUp = async () => {
+    if (!termsAccepted) {
+      toast.error(t("termsRequired"));
+      return;
+    }
     if (!isFirebaseEnabled()) {
       login("customer", "Customer");
       navigate("/dashboard");
@@ -38,6 +45,10 @@ const Register = () => {
   };
 
   const handleAppleSignUp = async () => {
+    if (!termsAccepted) {
+      toast.error(t("termsRequired"));
+      return;
+    }
     if (!isFirebaseEnabled()) {
       login("customer", "Customer");
       navigate("/dashboard");
@@ -64,13 +75,24 @@ const Register = () => {
           <p className="mt-5 text-center text-sm text-muted-foreground">
             {t("createAccount")}
           </p>
-          <div className="mt-8 w-full space-y-3">
+          <label htmlFor="register-terms" className="mt-8 flex cursor-pointer items-start gap-3 rounded-xl border border-border/60 bg-card/40 p-3 text-left">
+            <Checkbox
+              id="register-terms"
+              checked={termsAccepted}
+              onCheckedChange={(v) => setTermsAccepted(v === true)}
+              className="mt-0.5"
+              aria-required
+            />
+            <span className="text-sm leading-snug text-muted-foreground">{t("termsAndPrivacy")}</span>
+          </label>
+
+          <div className="mt-4 w-full space-y-3">
             <Button
               type="button"
               variant="outline"
               size="lg"
               className="h-14 w-full justify-center gap-2 rounded-2xl border-border bg-card text-foreground"
-              disabled={busy}
+              disabled={actionsDisabled}
               onClick={handleGoogleSignUp}
             >
               <Chrome className="h-5 w-5" />
@@ -81,7 +103,7 @@ const Register = () => {
               variant="outline"
               size="lg"
               className="h-14 w-full justify-center gap-2 rounded-2xl border-border bg-card text-foreground"
-              disabled={busy}
+              disabled={actionsDisabled}
               onClick={handleAppleSignUp}
             >
               <Apple className="h-5 w-5" />
@@ -95,7 +117,14 @@ const Register = () => {
           variant="hero"
           size="lg"
           className="h-14 w-full rounded-2xl"
-          onClick={() => navigate("/request/new")}
+          disabled={!termsAccepted}
+          onClick={() => {
+            if (!termsAccepted) {
+              toast.error(t("termsRequired"));
+              return;
+            }
+            navigate("/request/new");
+          }}
         >
           {t("getStartedPhotos")}
         </Button>

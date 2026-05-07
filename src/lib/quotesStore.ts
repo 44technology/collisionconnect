@@ -82,11 +82,32 @@ export function getQuotesByRequestRefId(requestRefId: string): BodyShopQuote[] {
   });
 }
 
-/** Async: Firestore when enabled, else localStorage. Use this in UI. */
+function mergeQuotesDedupe(a: BodyShopQuote[], b: BodyShopQuote[]): BodyShopQuote[] {
+  const map = new Map<string, BodyShopQuote>();
+  for (const q of a) map.set(q.id, q);
+  for (const q of b) {
+    if (!map.has(q.id)) map.set(q.id, q);
+  }
+  return Array.from(map.values()).sort((x, y) => {
+    if (x.price !== y.price) return x.price - y.price;
+    return (x.estimatedCompletion || "").localeCompare(y.estimatedCompletion || "");
+  });
+}
+
+/**
+ * Firestore açıkken kaynak olarak Firestore kullanılır (tüm cihazlarda aynı veri).
+ * Önceki hata: Firestore boşken localStorage'a düşülüyordu — sadece geliştirici makinesinde
+ * görünen “hayalet” teklifler oluşuyordu.
+ * DEV: Firestore + tarayıcı localStorage birleştirilir (yalnızca geliştirme kolaylığı).
+ */
 export async function getQuotesByRequestRefIdAsync(requestRefId: string): Promise<BodyShopQuote[]> {
   if (isFirebaseEnabled()) {
     const fromFirestore = await getQuotesByRequestRefIdFromFirestore(requestRefId);
-    if (fromFirestore.length > 0) return fromFirestore;
+    if (import.meta.env.DEV) {
+      const local = getQuotesByRequestRefId(requestRefId);
+      return mergeQuotesDedupe(fromFirestore, local);
+    }
+    return fromFirestore;
   }
   return getQuotesByRequestRefId(requestRefId);
 }

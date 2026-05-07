@@ -1,24 +1,35 @@
-# Ödeme (Stripe) Kurulumu
+# Ödeme (iOS IAP) Kurulumu
 
-Unlock ödemeleri **Stripe Checkout** ile alınıyor. Bu yapı **Apple App Store ile uyumludur**: dijital içerik satışı değil, aracı hizmet (body shop’larla bağlantı) ücreti; ödeme harici (Stripe) yapıldığı için Apple komisyonu (%15–30) uygulanmaz.
+Unlock ödemeleri artık iOS tarafında **Apple In‑App Purchase (IAP)** ile alınıyor.
 
-## Netlify’da
+## App Store Connect
 
-1. [Stripe Dashboard](https://dashboard.stripe.com) → API Keys → **Secret key**’i kopyala.
-2. Netlify → Site → Site settings → Environment variables:
-   - `STRIPE_SECRET_KEY` = `sk_live_...` (canlı) veya `sk_test_...` (test).
-3. (İsteğe bağlı) Stripe’da sabit fiyatlı ürün oluşturup `STRIPE_UNLOCK_PRICE_ID` = `price_...` tanımlayabilirsin; yoksa fonksiyon $4.99’u otomatik kullanır.
+1. App Store Connect → uygulamanız → **In-App Purchases**.
+2. Yeni ürün oluşturun (genelde **Non-Consumable**):
+   - Örnek Product ID: `com.collisionconnect.unlock.details`
+   - Fiyat: `$4.99`
+3. Sandbox test account oluşturun (Users and Access → Sandbox).
 
-## Yerel test
+## Proje Ayarı
+
+`.env` dosyasına ürün kimliğini ekleyin:
 
 ```bash
-netlify dev
+VITE_IAP_UNLOCK_PRODUCT_ID=com.collisionconnect.unlock.details
 ```
 
-`STRIPE_SECRET_KEY` için `.env` veya `netlify.toml` içinde `[functions]` altında `[functions.environment]` ile verebilirsin (secret’ı repo’ya koyma).
+## iOS Proje Ayarı
 
-## Akış
+1. Xcode → target `App` → **Signing & Capabilities**
+2. **In-App Purchase** capability ekleyin.
+3. Sonra:
 
-1. Kullanıcı “Unlock – $4.99” der → `create-checkout-session` çağrılır.
-2. Stripe Checkout sayfasına yönlendirilir, ödeme yapar.
-3. Başarıda uygulamaya `?session_id=...` ile döner; `verify-session` ile doğrulanır ve unlock kaydedilir.
+```bash
+npx cap sync ios
+```
+
+## Test Akışı
+
+1. Uygulamada müşteri `Details` ekranında `Pay with Apple` seçer.
+2. Apple Sandbox ödeme ekranı açılır.
+3. Satın alma başarılıysa request unlock olur ve body shop detayları görünür.

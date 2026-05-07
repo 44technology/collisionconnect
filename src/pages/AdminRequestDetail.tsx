@@ -241,35 +241,36 @@ const AdminRequestDetail = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="bg-card border-b border-border sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="border-white/50 bg-white/15 text-white hover:bg-white/25"
-                onClick={() => navigate("/admin/dashboard")}
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                {t("backToList")}
-              </Button>
-              <div className="flex items-center gap-2">
-                <div className="w-10 h-10 bg-accent/20 rounded-xl flex items-center justify-center">
-                  <Shield className="w-6 h-6 text-accent" />
-                </div>
-                <span className="text-xl font-display font-bold">
-                  Fixly
-                  <span className="text-sm font-normal text-muted-foreground ml-2">{t("admin")} – {t("requestDetail")}</span>
-                </span>
+    <div className="flex min-h-[100dvh] min-h-screen flex-col bg-background">
+      <header className="sticky top-0 z-50 shrink-0 border-b border-border bg-card/95 backdrop-blur-xl supports-[backdrop-filter]:bg-card/85">
+        <div className="app-header-pt container mx-auto px-4 pb-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="shrink-0 rounded-full"
+              onClick={() => navigate("/admin/dashboard")}
+              aria-label={t("backToList")}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent/20">
+                <Shield className="h-5 w-5 text-accent" />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate font-display text-sm font-bold sm:text-base">Fixly</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {t("admin")} – {t("requestDetail")}
+                </p>
               </div>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-6 space-y-6">
+      <main className="app-safe-pb container mx-auto flex-1 space-y-6 overflow-y-auto overscroll-y-contain px-4 py-6">
         {/* Talep özeti */}
         <Card>
           <CardHeader>

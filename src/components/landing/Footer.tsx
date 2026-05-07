@@ -1,5 +1,4 @@
 import { Car, Mail, Phone, MapPin } from "lucide-react";
-import { Link } from "react-router-dom";
 import { useLanguage } from "@/lib/LanguageContext";
 
 const Footer = () => {
@@ -37,11 +36,6 @@ const Footer = () => {
                 <a href="#" className="text-primary-foreground/60 hover:text-accent transition-colors">
                   {t("faq")}
                 </a>
-              </li>
-              <li>
-                <Link to="/login?mode=admin" className="text-primary-foreground/60 hover:text-accent transition-colors">
-                  {t("admin")}
-                </Link>
               </li>
               <li>
                 <a href="#" className="text-primary-foreground/60 hover:text-accent transition-colors">

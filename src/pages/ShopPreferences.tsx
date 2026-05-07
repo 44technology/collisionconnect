@@ -80,29 +80,35 @@ const ShopPreferencesPage = () => {
   if (user?.userType !== "shop") return null;
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      <div className="flex min-h-[100dvh] min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="bg-card border-b border-border sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <Button variant="ghost" size="sm" onClick={() => navigate("/shop/dashboard")}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              {t("back")}
-            </Button>
-            <span className="text-lg font-display font-bold">{t("shopPreferencesTitle")}</span>
-            <div className="w-20" />
+    <div className="flex min-h-[100dvh] min-h-screen flex-col bg-background">
+      <header className="sticky top-0 z-50 shrink-0 border-b border-border/70 bg-card/85 backdrop-blur-xl supports-[backdrop-filter]:bg-card/75">
+        <div className="app-header-pt mx-auto flex max-w-lg items-center gap-2 px-3 pb-3 sm:max-w-2xl sm:gap-3 sm:px-4">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="shrink-0 rounded-full"
+            onClick={() => navigate("/shop/dashboard")}
+            aria-label={t("back")}
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <Wrench className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
+            <h1 className="truncate font-display text-base font-bold tracking-tight sm:text-lg">{t("shopPreferencesTitle")}</h1>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8 max-w-lg">
-        <Card>
+      <main className="app-safe-pb mx-auto w-full max-w-lg flex-1 overflow-y-auto overscroll-y-contain px-4 py-6 sm:max-w-2xl sm:py-8">
+        <Card className="shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Wrench className="w-5 h-5" />
